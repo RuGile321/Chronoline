@@ -620,9 +620,11 @@ function clampView(){
   if(view.start<-20000){view.end+= -20000-view.start;view.start=-20000}
   if(view.end>3000){view.start-=view.end-3000;view.end=3000}
 }
+let drawPending=false;
+function scheduleDraw(){if(drawPending)return;drawPending=true;requestAnimationFrame(()=>{drawPending=false;drawTimeline()})}
 function zoomAt(factor,frac){
   const span=view.end-view.start;const at=view.start+span*frac;const ns=span*factor;
-  view={start:at-ns*frac,end:at-ns*frac+ns};clampView();drawTimeline();
+  view={start:at-ns*frac,end:at-ns*frac+ns};clampView();scheduleDraw();
 }
 const NICE=[1,2,5,10,20,25,50,100,200,250,500,1000,2000,2500,5000,10000];
 function tickStep(pxPerYear){for(const s of NICE)if(s*pxPerYear>=90)return s;return 10000}
@@ -678,13 +680,15 @@ function textWidth(text,font){
   return w;
 }
 function labelWidth(e){
-  const rem=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
+  const rem=remPx||16;
   const tw=Math.min(textWidth(e.title,(0.84*rem)+'px "Source Sans 3", "Segoe UI", system-ui, sans-serif'),MAXTITLE);
   const yw=textWidth(fmtWhen(e),(0.7*rem)+'px "IBM Plex Mono", ui-monospace, Menlo, monospace');
   return Math.ceil(tw+yw+6)+4+(e.key?16:0);
 }
+let remPx=16;
 function drawTimeline(){
   hidePop();
+  remPx=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
   const vp=$("#vp"),track=$("#track");
   const W=vp.clientWidth||800;const span=view.end-view.start;const ppy=W/span;
   const x=t=>(t-view.start)*ppy;
@@ -941,12 +945,12 @@ window.addEventListener("pointermove",ev=>{
   if(pinch&&pointers.size===2){
     const xs=[...pointers.values()];const d=Math.abs(xs[0]-xs[1])||1;
     const span0=pinch.end-pinch.start;const frac=Math.min(1,Math.max(0,(pinch.mid-rect.left)/W));const at=pinch.start+span0*frac;
-    const ns=span0*pinch.d/d;view={start:at-ns*frac,end:at-ns*frac+ns};clampView();drawTimeline();moved=true;return;
+    const ns=span0*pinch.d/d;view={start:at-ns*frac,end:at-ns*frac+ns};clampView();scheduleDraw();moved=true;return;
   }
   if(drag){
     const dx=ev.clientX-drag.x;
     if(Math.abs(dx)>4&&!moved){moved=true;tlBox.classList.add("dragging");hidePop()}
-    if(moved){const dy=(drag.end-drag.start)*dx/W;view={start:drag.start-dy,end:drag.end-dy};clampView();drawTimeline()}
+    if(moved){const dy=(drag.end-drag.start)*dx/W;view={start:drag.start-dy,end:drag.end-dy};clampView();scheduleDraw()}
   }
 });
 function endPtr(ev){if(!pointers.has(ev.pointerId))return;pointers.delete(ev.pointerId);if(pointers.size<2)pinch=null;if(pointers.size===0){drag=null;tlBox.classList.remove("dragging")}}
@@ -958,12 +962,13 @@ tlBox.addEventListener("wheel",ev=>{
   let dx=ev.deltaX,dy=ev.deltaY;
   if(ev.deltaMode===1){dx*=16;dy*=16}else if(ev.deltaMode===2){dx*=rect.width;dy*=rect.width}
   ev.preventDefault();hidePop();
-  if(ev.ctrlKey){zoomAt(Math.exp(dy*0.01),frac);return}           // trackpad pinch (Chrome, Edge, Firefox)
+  const step=Math.max(-60,Math.min(60,dy));
+  if(ev.ctrlKey){zoomAt(Math.exp(step*0.02),frac);return}         // trackpad pinch (Chrome, Edge, Firefox)
   if(Math.abs(dx)>Math.abs(dy)||ev.shiftKey){                         // sideways swipe: move through time
     const d=dx||dy;const span=view.end-view.start;
-    view={start:view.start+span*d/rect.width,end:view.end+span*d/rect.width};clampView();drawTimeline();return;
+    view={start:view.start+span*d/rect.width,end:view.end+span*d/rect.width};clampView();scheduleDraw();return;
   }
-  zoomAt(Math.exp(dy*0.0018),frac);                                   // up/down scroll: zoom
+  zoomAt(Math.exp(step*0.012),frac);                                   // up/down scroll: zoom
 },{passive:false});
 // Safari sends its own events for a trackpad pinch
 let gStart=null;
@@ -971,7 +976,7 @@ tlBox.addEventListener("gesturestart",ev=>{ev.preventDefault();const r=vp.getBou
 tlBox.addEventListener("gesturechange",ev=>{
   if(!gStart)return;ev.preventDefault();hidePop();
   const span0=gStart.end-gStart.start,at=gStart.start+span0*gStart.frac,ns=span0/(ev.scale||1);
-  view={start:at-ns*gStart.frac,end:at-ns*gStart.frac+ns};clampView();drawTimeline();
+  view={start:at-ns*gStart.frac,end:at-ns*gStart.frac+ns};clampView();scheduleDraw();
 });
 tlBox.addEventListener("gestureend",ev=>{ev.preventDefault();gStart=null});
 $("#zIn").onclick=()=>zoomAt(1/1.6,.5);
