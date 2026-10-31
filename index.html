@@ -101,6 +101,8 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
 .ev{position:absolute;height:22px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-left:3px solid var(--c);background:var(--surface);border-radius:4px;padding:0 7px 0 6px;white-space:nowrap;font-size:.84rem;color:var(--fg);z-index:3}
 .ev .tt,.blk .tt{display:inline-block;max-width:230px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 .blk>span{flex:none}
+.blk.shifted>span{transform:translateX(calc(-1 * var(--shift,0px)))}
+.blk.shifted>.tt{background:color-mix(in srgb,var(--surface) 80%,transparent);border-radius:3px;padding:0 3px}
 .ev .yr{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
 .ev:hover,.ev.sel{background:var(--fg);color:var(--bg);border-color:var(--fg);border-left-color:var(--c)}
 .ev:hover .yr,.ev.sel .yr{color:var(--bg)}
@@ -713,7 +715,7 @@ function drawTimeline(){
     groups=ids.map(id=>({cat:id==="_none"?{name:"No category",color:"#6b7385"}:catOf(id),evs:evs.filter(e=>(e.cat||"_none")===id)}));
   }else groups=[{cat:null,evs}];
 
-  const LANE=28, ROW=32, YLAB=26, MAXL=4, MAXR=4;
+  const LANE=28, ROW=32, YLAB=26, MAXL=4, MAXR=4, SMALL_BLOCK=48;
   // who gets label space first: the selected event, then key events, then by date
   const prio=(a,b)=>((b.id===selected)-(a.id===selected))||((!!b.key)-(!!a.key))||(evStart(a)-evStart(b));
   const fits=(lane,l,r)=>lane.every(([a,b])=>r<=a||l>=b);
@@ -727,7 +729,9 @@ function drawTimeline(){
     // short events: at most MAXL rows of names; the rest become dots on the line
     const pLanes=[],points=[],loose=[];
     for(const p of pts.sort((a,b)=>prio(a.e,b.e))){
-      const l=p.x0-8,r=l+labelWidth(p.e)+34;
+      const w=labelWidth(p.e)+26;let lx=p.x0-8;
+      if(p.x0>=0&&p.x0<=W){if(lx+w>W-4)lx=W-4-w;if(lx<4)lx=4}
+      p.lx=lx;const l=Math.min(lx,p.x0-8),r=Math.max(lx+w,p.x0+8)+8;
       let lane=pLanes.findIndex(ln=>fits(ln,l,r));
       if(lane<0&&pLanes.length<MAXL){lane=pLanes.length;pLanes.push([])}
       if(lane<0){loose.push(p);continue}
@@ -737,7 +741,13 @@ function drawTimeline(){
     const rows=[],periods=[],over=[];
     for(const p of pers.sort((a,b)=>prio(a.e,b.e))){
       p.bx=Math.max(p.x0,-2);p.bw=Math.max(p.x1-p.bx,4);
-      const l=p.x0,r=Math.max(p.x1,p.bx+labelWidth(p.e)+24)+6;
+      // short blocks stay unlabelled until zoomed in (key and selected events always keep their name)
+      p.showLabel=p.bw>=SMALL_BLOCK||!!p.e.key||selected===p.e.id;
+      const lw=p.showLabel?labelWidth(p.e)+24:0;
+      // a label that would run off the right edge moves to just before its block (or as far left as fits)
+      p.shift=0;
+      if(p.showLabel&&p.bx<W&&p.bx+lw>W-4){const before=lw-10;p.shift=p.bx-before>=4?before:Math.max(0,Math.min(p.bx+lw-(W-4),p.bx-4))}
+      const l=Math.min(p.x0,p.bx-p.shift),r=Math.max(p.x1,p.bx-p.shift+lw)+6;
       let row=rows.findIndex(rw=>fits(rw,l,r));
       if(row<0&&rows.length<MAXR){row=rows.length;rows.push([])}
       if(row<0){over.push(p);continue}
@@ -781,8 +791,8 @@ function drawTimeline(){
         cv.append(el("div",{class:"span",style:"left:"+p.bx+"px;width:"+p.bw+"px;top:"+lineY+"px;background:"+c}));
         for(const gx of [p.x0,p.x1])if(gx>=0&&gx<=W)cv.append(el("div",{class:"guide",style:"--c:"+c+";left:"+gx+"px;top:"+lineY+"px;height:"+(top-lineY)+"px"}));
       }
-      const b=el("button",{"data-id":p.e.id,class:"blk"+(sel?" sel":""),style:"left:"+p.bx+"px;width:"+p.bw+"px;top:"+top+"px;--c:"+c,"aria-label":p.e.title+", "+fmtWhen(p.e),title:p.e.title+" · "+fmtWhen(p.e)},
-        p.e.key?el("span",{class:"star","aria-hidden":"true"},"★"):null,el("span",{class:"tt"},p.e.title),el("span",{class:"yr"},fmtWhen(p.e)));
+      const b=el("button",{"data-id":p.e.id,class:"blk"+(sel?" sel":"")+(p.shift?" shifted":""),style:"left:"+p.bx+"px;width:"+p.bw+"px;top:"+top+"px;--c:"+c+";--shift:"+p.shift+"px","aria-label":p.e.title+", "+fmtWhen(p.e),title:p.e.title+" · "+fmtWhen(p.e)},
+        ...(p.showLabel?[p.e.key?el("span",{class:"star","aria-hidden":"true"},"★"):null,el("span",{class:"tt"},p.e.title),el("span",{class:"yr"},fmtWhen(p.e))]:[]));
       b.addEventListener("click",()=>pickOnTimeline(p.e));
       cv.append(b);
     }
@@ -792,7 +802,7 @@ function drawTimeline(){
       const c=colorOf(p.e);const top=lineY-(p.lane+1)*LANE-6;const sel=selected===p.e.id;
       cv.append(el("div",{class:"stalk",style:"left:"+p.x0+"px;top:"+(top+22)+"px;height:"+(lineY-top-22)+"px;background:"+c}));
       cv.append(el("div",{class:"pin",style:"left:"+p.x0+"px;top:"+lineY+"px;background:"+c+(sel?";box-shadow:0 0 0 2px var(--fg)":"")}));
-      const b=el("button",{"data-id":p.e.id,class:"ev"+(sel?" sel":""),style:"left:"+(p.x0-8)+"px;top:"+top+"px;--c:"+c,"aria-label":p.e.title+", "+fmtWhen(p.e),title:p.e.title+" · "+fmtWhen(p.e)},
+      const b=el("button",{"data-id":p.e.id,class:"ev"+(sel?" sel":""),style:"left:"+p.lx+"px;top:"+top+"px;--c:"+c,"aria-label":p.e.title+", "+fmtWhen(p.e),title:p.e.title+" · "+fmtWhen(p.e)},
         p.e.key?el("span",{class:"star","aria-hidden":"true"},"★"):null,el("span",{class:"tt"},p.e.title),el("span",{class:"yr"},fmtWhen(p.e)));
       b.addEventListener("click",()=>pickOnTimeline(p.e));
       cv.append(b);
