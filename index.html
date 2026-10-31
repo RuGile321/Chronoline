@@ -100,6 +100,7 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
 .pin{position:absolute;width:12px;height:12px;border-radius:50%;transform:translate(-6px,-5px);border:2px solid var(--surface);pointer-events:none;z-index:2}
 .ev{position:absolute;height:22px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-left:3px solid var(--c);background:var(--surface);border-radius:4px;padding:0 7px 0 6px;white-space:nowrap;font-size:.84rem;color:var(--fg);z-index:3}
 .ev .tt,.blk .tt{display:inline-block;max-width:230px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.blk>span{flex:none}
 .ev .yr{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
 .ev:hover,.ev.sel{background:var(--fg);color:var(--bg);border-color:var(--fg);border-left-color:var(--c)}
 .ev:hover .yr,.ev.sel .yr{color:var(--bg)}
@@ -257,7 +258,8 @@ input[type=file]{font-size:.9rem;max-width:100%}
 .pophead{display:flex;align-items:center;gap:6px;font-size:.8rem}
 .poptitle{font-family:var(--f-display);font-weight:600;font-size:1.05rem;line-height:1.25}
 .pop .row{margin-top:4px}
-.tour{position:fixed;inset:0;z-index:30}
+.tour{position:fixed;inset:0;z-index:30;touch-action:none;overscroll-behavior:contain}
+html.touring,html.touring body{overflow:hidden;overscroll-behavior:none}
 .spot{position:fixed;border-radius:10px;box-shadow:0 0 0 9999px color-mix(in srgb,#000 58%,transparent);outline:2px solid var(--accent);transition:all .25s ease;pointer-events:none}
 .spot.off{left:50%;top:50%;width:0;height:0;outline:0}
 .tcard{position:fixed;width:min(360px,calc(100vw - 24px));background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 16px 40px -12px color-mix(in srgb,#000 60%,transparent)}
@@ -642,13 +644,13 @@ function renderFilters(){
   const cats=[...state.categories];
   if(counts._none)cats.push({id:"_none",name:"No category",color:"#6b7385"});
   for(const c of cats){
-    f.append(el("button",{class:"chip","aria-pressed":String(active.has(c.id)),title:"Click to show only this · Shift-click to add to selection",onclick:ev=>{
-      if(ev.shiftKey||ev.metaKey||ev.ctrlKey){active.has(c.id)?active.delete(c.id):active.add(c.id)}
-      else{if(active.size===1&&active.has(c.id))active.clear();else{active.clear();active.add(c.id)}}
+    f.append(el("button",{class:"chip","aria-pressed":String(active.has(c.id)),title:active.has(c.id)?"Tap to hide this category":"Tap to show this category",onclick:()=>{
+      // tap adds a category to what's shown, tap again removes it; nothing selected = everything
+      if(active.has(c.id))active.delete(c.id);else active.add(c.id);
       fitAll();render();
     }},el("span",{class:"sw",style:"background:"+c.color}),c.name,el("span",{class:"n"},counts[c.id]||0)));
   }
-  if(state.categories.length>1)f.append(el("span",{class:"muted",style:"font-size:.82rem"},"Shift-click to combine"));
+  if(cats.length>1)f.append(el("span",{class:"muted",style:"font-size:.82rem"},active.size?"Tap more to combine them":"Tap categories to pick which to show"));
 }
 
 function buildTicks(ppy){
@@ -1186,7 +1188,7 @@ const TOUR=[
   {sel:"#btnAdd",t:"Add events",b:"Add anything you learn. Type the date straight through: year, then month, then day, and the cursor jumps for you. Press A or B in the year box to switch between AD and BC. Month and day are optional."},
   {sel:"#btnAdd",t:"The ★ star",b:"In the Add event box, tap ☆ next to the name to make it a key event. Key events always keep their name visible on the timeline, and you can study only key events."},
   {sel:"#btnCats",t:"Categories",b:"Group events by country or theme, like History of Italy. Each category gets its own colour."},
-  {sel:"#filters",t:"Filter",b:"Click a category to see only that one, or Shift-click to combine several. All categories shows everything together."},
+  {sel:"#filters",t:"Filter",b:"Tap a category to see only that one. Tap more to combine them, and tap one again to hide it. All categories shows everything together."},
   {sel:".tl",t:"The timeline",b:"Single events are marks on the line; things that lasted a while are blocks below it, stacked when they overlap. Drag to move, scroll or pinch to zoom. A numbered bubble means several events are crowded together: click it to zoom in."},
   {sel:"#detail",t:"Click an event",b:"Clicking an event lets you edit it, and shows what came before and after, and what was happening elsewhere at the same time."},
   {sel:"#tabStudy",t:"Study mode",b:"Practise with flashcards. Pick categories or a time frame, say the answer out loud, then flip the card. Tap again to see your notes."},
@@ -1201,9 +1203,10 @@ function maybeTour(){
   let seen=false;try{seen=localStorage.getItem("chronoline-tour")==="1"}catch(e){}
   if(!state.tourDone&&!seen)startTour();
 }
-function startTour(){if(location.hash==="#study")location.hash="#timeline";closeModal();hidePop();tourStep=0;drawTour()}
+function startTour(){if(location.hash==="#study")location.hash="#timeline";closeModal();hidePop();tourStep=0;document.documentElement.classList.add("touring");drawTour()}
 function endTour(){
   tourStep=-1;const o=$("#tour");if(o)o.remove();
+  document.documentElement.classList.remove("touring");
   try{localStorage.setItem("chronoline-tour","1")}catch(e){}
   if(!state.tourDone){state.tourDone=true;persist()}
 }
@@ -1221,6 +1224,11 @@ function drawTour(){
       tourStep>0?el("button",{class:"btn small",onclick:()=>{tourStep--;drawTour()}},"Back"):null,
       el("button",{class:"btn small primary",onclick:()=>{if(last)endTour();else{tourStep++;drawTour()}}},last?"Start using Chronoline":"Next")));
   wrap.append(spot,card);document.body.append(wrap);
+  // nothing behind the tour can be scrolled, dragged or zoomed
+  const block=ev=>{if(ev.cancelable)ev.preventDefault()};
+  wrap.addEventListener("touchmove",block,{passive:false});
+  wrap.addEventListener("wheel",block,{passive:false});
+  wrap.addEventListener("gesturestart",block);wrap.addEventListener("gesturechange",block);
   const place=()=>{
     const vw=innerWidth,vh=innerHeight,cw=card.offsetWidth,ch=card.offsetHeight;
     if(!target){card.style.left=Math.max(12,(vw-cw)/2)+"px";card.style.top=Math.max(12,(vh-ch)/2.5)+"px";return}
@@ -1229,11 +1237,19 @@ function drawTour(){
     let top=r.bottom+14;if(top+ch>vh-12)top=r.top-ch-14;if(top<12)top=Math.max(12,vh-ch-12);
     card.style.left=Math.min(Math.max(12,r.left),vw-cw-12)+"px";card.style.top=top+"px";
   };
-  if(target)target.scrollIntoView({block:"nearest"});
+  if(target){
+    const r=target.getBoundingClientRect();
+    if(r.top<12||r.bottom>innerHeight-12)target.scrollIntoView({block:r.height>innerHeight*.5?"start":"center"});
+  }
   place();requestAnimationFrame(place);
+  tourPlace=place;
   card.querySelector(".btn.primary").focus({preventScroll:true});
 }
+let tourPlace=null;
 window.addEventListener("resize",()=>{if(tourOpen())drawTour()});
+// if anything still moves the page (e.g. the phone's address bar), keep the highlight on target
+window.addEventListener("scroll",()=>{if(tourOpen()&&tourPlace)tourPlace()},{passive:true});
+if(window.visualViewport)visualViewport.addEventListener("resize",()=>{if(tourOpen()&&tourPlace)tourPlace()});
 $("#btnHelp").onclick=startTour;
 $("#btnShare").onclick=()=>openShare();
 $("#btnTheme").onclick=openThemes;
