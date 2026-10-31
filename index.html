@@ -1,0 +1,1611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Build your own history timeline and see how events fit together.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%232747c9%27/%3E%3Cpath d=%27M5 17h22%27 stroke=%27white%27 stroke-width=%272.5%27/%3E%3Ccircle cx=%2711%27 cy=%2717%27 r=%273.5%27 fill=%27white%27/%3E%3Crect x=%2716%27 y=%2720%27 width=%279%27 height=%274%27 rx=%271%27 fill=%27white%27/%3E%3C/svg%3E">
+<title>Chronoline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working instrument — toolbar, filter chips, a wide pannable time ruler with lanes per category, then detail + list below. */
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --sunk:#e8ecf2; --line:#d3d9e3; --fg:#18202c; --muted:#5a6578;
+  --accent:#2747c9; --accent-fg:#ffffff; --danger:#b42335; --grid:#e3e7ee;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141b; --surface:#181e28; --sunk:#0c1016; --line:#2c3545; --fg:#e6ebf3; --muted:#9aa5b8;
+  --accent:#8ea4ff; --accent-fg:#0d1330; --danger:#ff8796; --grid:#1f2633; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141b; --surface:#181e28; --sunk:#0c1016; --line:#2c3545; --fg:#e6ebf3; --muted:#9aa5b8;
+  --accent:#8ea4ff; --accent-fg:#0d1330; --danger:#ff8796; --grid:#1f2633; color-scheme:dark}
+/* colour themes chosen in the Theme picker */
+html:root[data-skin="light"]{--bg:#f2f4f7;--surface:#ffffff;--sunk:#e8ecf2;--line:#d3d9e3;--fg:#18202c;--muted:#5a6578;--accent:#2747c9;--accent-fg:#ffffff;--danger:#b42335;--grid:#e3e7ee;color-scheme:light}
+html:root[data-skin="dark"]{--bg:#10141b;--surface:#181e28;--sunk:#0c1016;--line:#2c3545;--fg:#e6ebf3;--muted:#9aa5b8;--accent:#8ea4ff;--accent-fg:#0d1330;--danger:#ff8796;--grid:#1f2633;color-scheme:dark}
+html:root[data-skin="parchment"]{--bg:#f1e9da;--surface:#faf5ea;--sunk:#e7dcc6;--line:#d6c7aa;--fg:#2b2117;--muted:#6f604c;--accent:#8a3b1f;--accent-fg:#ffffff;--danger:#a3261f;--grid:#e8dec9;color-scheme:light}
+html:root[data-skin="midnight"]{--bg:#0b1020;--surface:#131a2e;--sunk:#080c18;--line:#28324d;--fg:#e8ecf6;--muted:#9aa6c2;--accent:#e8b54a;--accent-fg:#1a1405;--danger:#ff8a8a;--grid:#1a2238;color-scheme:dark}
+html:root[data-skin="forest"]{--bg:#ecf2ec;--surface:#fbfdfb;--sunk:#dfe9e0;--line:#c6d6c8;--fg:#14251a;--muted:#557060;--accent:#1f7a4a;--accent-fg:#ffffff;--danger:#b42335;--grid:#e1eae2;color-scheme:light}
+html:root[data-skin="rose"]{--bg:#f8eef1;--surface:#fffafb;--sunk:#efdfe4;--line:#e0c6cd;--fg:#2e1a20;--muted:#7a5a63;--accent:#b2305e;--accent-fg:#ffffff;--danger:#b42335;--grid:#f0e2e6;color-scheme:light}
+html:root[data-skin="ocean"]{--bg:#06181c;--surface:#0c2328;--sunk:#041114;--line:#1d3d43;--fg:#e2f2f2;--muted:#8fb3b5;--accent:#3fd0c4;--accent-fg:#04201d;--danger:#ff8a8a;--grid:#11303a;color-scheme:dark}
+html:root[data-skin="contrast"]{--bg:#000000;--surface:#0b0b0b;--sunk:#000000;--line:#777777;--fg:#ffffff;--muted:#d6d6d6;--accent:#ffd400;--accent-fg:#000000;--danger:#ff6b6b;--grid:#2a2a2a;color-scheme:dark}
+html:root[data-skin="bubblegum"]{--bg:#ffd3e6;--surface:#ffeef6;--sunk:#ffc0dc;--line:#f7a3c8;--fg:#4a0a2a;--muted:#9c3b6b;--accent:#e6007a;--accent-fg:#ffffff;--danger:#b0002a;--grid:#ffc6df;color-scheme:light}
+html:root[data-skin="candy"]{--bg:#1f0716;--surface:#2e0b22;--sunk:#160410;--line:#5a1a44;--fg:#ffe3f1;--muted:#e59ac3;--accent:#ff4fb3;--accent-fg:#2a0019;--danger:#ff8a8a;--grid:#3d0f2e;color-scheme:dark}
+html:root[data-skin="matcha"]{--bg:#d6efc0;--surface:#ecf8e1;--sunk:#c3e5a6;--line:#a3d27f;--fg:#173006;--muted:#4c7a2c;--accent:#2f8f12;--accent-fg:#ffffff;--danger:#b42335;--grid:#c8e7ae;color-scheme:light}
+html:root[data-skin="jungle"]{--bg:#06190b;--surface:#0c2713;--sunk:#031007;--line:#1f4d2a;--fg:#e2f7e5;--muted:#93c79d;--accent:#6ee36a;--accent-fg:#06250a;--danger:#ff8a8a;--grid:#123b1d;color-scheme:dark}
+html:root[data-skin="lavender"]{--bg:#e6ddfb;--surface:#f5f0ff;--sunk:#d8cbf7;--line:#bfaaf0;--fg:#251246;--muted:#6650a0;--accent:#7b3fe4;--accent-fg:#ffffff;--danger:#b42335;--grid:#dcd0f7;color-scheme:light}
+html:root[data-skin="sunset"]{--bg:#ffe0c7;--surface:#fff2e6;--sunk:#ffd0ab;--line:#f5b384;--fg:#3d1606;--muted:#9a4d22;--accent:#e8521c;--accent-fg:#ffffff;--danger:#b0002a;--grid:#ffd6b8;color-scheme:light}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1280px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance}
+h1{font-size:1.9rem;font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.15rem;font-weight:600}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
+.brand{display:flex;align-items:baseline;gap:12px;flex:1 1 auto;min-width:0}
+.brand p{margin:0;color:var(--muted)}
+.status{font-size:.82rem;color:var(--muted);font-family:var(--f-mono)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 14px;font-weight:600}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.danger{color:var(--danger)}
+.btn.small{padding:4px 10px;font-size:.88rem}
+.btn:disabled{opacity:.5;cursor:default}
+.notice{background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:.92rem}
+
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px 4px 9px;font-size:.92rem}
+.chip .sw{width:11px;height:11px;border-radius:50%;flex:none}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip .n{font-family:var(--f-mono);font-size:.78rem;opacity:.7}
+.spacer{flex:1}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:.92rem;color:var(--muted)}
+
+/* timeline */
+.tl{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;position:relative}
+.tl-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tl-bar .range{font-family:var(--f-mono);font-size:.85rem;color:var(--muted);flex:1;min-width:0}
+.zoom{display:flex;gap:4px}
+.zoom button{width:32px;height:30px;border:1px solid var(--line);background:var(--surface);border-radius:6px;font-weight:600}
+.zoom button.wide{width:auto;padding:0 10px;font-size:.88rem}
+.viewport{position:relative;overflow-x:hidden;overflow-y:auto;max-height:62vh;min-height:220px;cursor:grab}
+.tl{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.tl.dragging,.tl.dragging *{cursor:grabbing!important}
+.track{position:relative}
+.grid{position:absolute;inset:0;pointer-events:none}
+.gl{position:absolute;top:0;bottom:0;border-left:1px solid var(--grid)}
+.gl.now{border-left:1px dashed var(--accent)}
+.group{position:relative;border-bottom:1px solid var(--grid);padding-top:4px}
+.ghead{position:sticky;left:0;display:inline-flex;align-items:center;gap:6px;margin:4px 0 0 8px;padding:1px 8px;border-radius:5px;font-size:.78rem;font-weight:600;background:var(--surface);z-index:4;letter-spacing:.02em}
+.ghead .sw{width:9px;height:9px;border-radius:2px}
+.canvas{position:relative}
+/* the line itself, with year marks drawn on it */
+.line{position:absolute;left:0;right:0;height:2px;background:var(--fg);border-radius:1px}
+.ymark{position:absolute;width:1px;height:12px;background:var(--fg);transform:translate(-.5px,-5px)}
+.ymark.minor{height:7px;transform:translate(-.5px,-2.5px);opacity:.55}
+.ylab{position:absolute;transform:translateX(-50%);font-family:var(--f-mono);font-size:.72rem;color:var(--muted);white-space:nowrap;pointer-events:none}
+.ylab.major{color:var(--fg);font-weight:500}
+/* short events: a mark on the line, a stalk, a label above */
+.stalk{position:absolute;width:1.5px;transform:translateX(-.75px);pointer-events:none;opacity:.8}
+.pin{position:absolute;width:12px;height:12px;border-radius:50%;transform:translate(-6px,-5px);border:2px solid var(--surface);pointer-events:none;z-index:2}
+.ev{position:absolute;height:22px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-left:3px solid var(--c);background:var(--surface);border-radius:4px;padding:0 7px 0 6px;white-space:nowrap;font-size:.84rem;color:var(--fg);z-index:3}
+.ev .tt,.blk .tt{display:inline-block;max-width:230px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.ev .yr{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
+.ev:hover,.ev.sel{background:var(--fg);color:var(--bg);border-color:var(--fg);border-left-color:var(--c)}
+.ev:hover .yr,.ev.sel .yr{color:var(--bg)}
+.ev.sel{z-index:5}
+/* long events: blocks below the line, overlapping ones on separate rows */
+.blk{position:absolute;height:26px;display:flex;align-items:center;gap:6px;padding:0 6px;box-sizing:border-box;border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 22%,var(--surface));border-radius:3px;white-space:nowrap;font-size:.84rem;color:var(--fg);z-index:3;overflow:visible}
+.blk .yr{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
+.blk:hover,.blk.sel{background:color-mix(in srgb,var(--c) 45%,var(--surface))}
+.blk.sel{z-index:5;box-shadow:0 0 0 2px var(--fg)}
+.ev .star,.blk .star{color:#d98a1c;font-size:.8rem}
+.dot0{position:absolute;width:10px;height:10px;border-radius:50%;padding:0;border:2px solid var(--surface);transform:translate(-5px,-4px);z-index:2;cursor:pointer}
+.dot0:hover{transform:translate(-5px,-4px) scale(1.5)}
+.clu{position:absolute;height:22px;min-width:22px;padding:0 7px;box-sizing:border-box;border-radius:11px;transform:translate(-50%,-10px);background:var(--fg);color:var(--bg);border:2px solid var(--c,var(--surface));font-family:var(--f-mono);font-size:.74rem;font-weight:500;z-index:4;cursor:pointer}
+.clu:hover{transform:translate(-50%,-10px) scale(1.12)}
+.more{position:absolute;height:24px;display:flex;align-items:center;padding:0 6px;box-sizing:border-box;border:1.5px dashed var(--muted);border-radius:3px;background:var(--sunk);color:var(--muted);font-size:.78rem;font-weight:600;white-space:nowrap;z-index:3;cursor:pointer}
+.more:hover{color:var(--fg);border-color:var(--fg)}
+.span{position:absolute;height:6px;transform:translateY(-2px);border-radius:3px;opacity:.9;pointer-events:none;z-index:1}
+.guide{position:absolute;width:0;border-left:1px dashed var(--c);pointer-events:none;opacity:.8}
+.empty{padding:48px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+.empty p{margin:0;max-width:52ch;color:var(--muted)}
+.hint{font-size:.8rem;color:var(--muted);padding:6px 12px;border-top:1px solid var(--line)}
+
+/* lower panels */
+.lower{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px;align-items:start}
+@media (max-width:820px){.lower{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.detail .cat{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600}
+.detail .when{font-family:var(--f-mono);font-size:.95rem}
+.detail .note{margin:0;white-space:pre-wrap}
+.rel{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.rel h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-family:var(--f-body)}
+.rel ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.rel li button{all:unset;cursor:pointer;display:flex;gap:8px;align-items:baseline;font-size:.92rem}
+.rel li button:hover .t{text-decoration:underline}
+.rel li button:focus-visible{outline:2px solid var(--accent)}
+.rel .gap{font-family:var(--f-mono);font-size:.78rem;color:var(--muted);min-width:9.5em}
+.sw{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.list{list-style:none;margin:0;padding:0;max-height:440px;overflow:auto}
+.list li button{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:9.5em 12px minmax(0,1fr);gap:10px;align-items:center;padding:6px 6px;border-radius:6px}
+.list li button:hover,.list li button.sel{background:var(--sunk)}
+.list li button:focus-visible{outline:2px solid var(--accent)}
+.list .y{font-family:var(--f-mono);font-size:.82rem;color:var(--muted);text-align:right}
+.list .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.listhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:color-mix(in srgb,#000 45%,transparent);display:flex;align-items:flex-start;justify-content:center;padding:max(24px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));overflow:auto;z-index:20}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:12px;width:100%;max-width:520px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label,.lab{font-size:.82rem;font-weight:600;color:var(--muted)}
+input[type=text],input[type=number],select,textarea{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:7px 9px;width:100%;box-sizing:border-box}
+textarea{min-height:72px;resize:vertical}
+.date{display:grid;grid-template-columns:auto minmax(0,1.2fr) minmax(0,1fr);gap:8px;align-items:stretch}
+.date input{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.era{display:flex;flex-direction:column;gap:2px;width:52px}
+.era button{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:5px;font-size:.74rem;font-weight:600;padding:0;min-height:16px;letter-spacing:.04em}
+.era button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.mdd{display:flex;align-items:center;gap:4px;min-width:0}
+.mdd input{text-align:center;min-width:0}
+.mdd .slash{color:var(--muted);font-family:var(--f-mono)}
+.datewrap{display:flex;flex-direction:column;gap:3px}
+.datehead{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.06em;color:var(--muted)}
+.datehead .c1{width:52px;text-align:center}
+.datehead > span:nth-child(2){padding-left:10px}
+.datehead .mdd span:not(.slash){flex:1;text-align:center}
+.err{color:var(--danger);font-size:.88rem;margin:0}
+.swatches{display:flex;flex-wrap:wrap;gap:6px}
+.swatches button{width:26px;height:26px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line)}
+.swatches button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--fg)}
+.catrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.catrow input[type=color]{width:32px;height:30px;padding:0;border:1px solid var(--line);border-radius:6px;background:none}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+[hidden]{display:none!important}
+@media (max-width:600px){.tl-bar .range{flex:1 1 100%}}
+/* log-in screen */
+.auth{position:fixed;inset:0;z-index:40;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:max(48px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
+.authcard{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 16px 40px -20px color-mix(in srgb,#000 45%,transparent)}
+.authbrand h1{font-size:2rem}
+.authbrand p{margin:2px 0 0;color:var(--muted)}
+.authcard .tabs{align-self:flex-start}
+.authcard h2{font-size:1.1rem}
+.authcard .btn{padding:10px 14px}
+.authok{margin:0;color:var(--fg);background:var(--sunk);border-radius:8px;padding:8px 10px;font-size:.92rem}
+.authlink{font-size:.88rem;color:var(--accent);align-self:flex-start}
+.author{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.82rem}
+.author::before,.author::after{content:"";flex:1;height:1px;background:var(--line)}
+.authsmall{font-size:.82rem;margin:-6px 0 0;text-align:center}
+input[type=email],input[type=password]{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:9px 10px;width:100%;box-sizing:border-box}
+
+.view{display:flex;flex-direction:column;gap:16px}
+.tabs{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+.tabs a{padding:5px 14px;border-radius:7px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.92rem}
+.tabs a[aria-current="page"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px color-mix(in srgb,#000 14%,transparent)}
+
+/* study mode */
+.study{display:flex;flex-direction:column;gap:16px;max-width:760px;width:100%;margin:0 auto}
+.setup{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:20px}
+.setup fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.setup legend{font-size:.78rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;padding:0;margin-bottom:8px}
+.frame{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,.7fr);gap:8px;align-items:center;max-width:420px}
+.frame .lab{min-width:3em}
+.choice{display:flex;flex-direction:column;gap:8px}
+.choice label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer}
+.choice label:has(input:checked){border-color:var(--fg);background:var(--sunk)}
+.choice small{display:block;color:var(--muted)}
+.startrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:16px}
+.progress{display:flex;align-items:center;gap:12px}
+.progress .meter{flex:1;height:6px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.progress .meter i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.card{position:relative;width:100%;min-height:300px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:44px 24px 28px;text-align:center;box-sizing:border-box;transition:transform .16s ease-in;box-shadow:0 1px 0 var(--line),0 8px 24px -16px color-mix(in srgb,#000 40%,transparent)}
+.card.turn{transform:perspective(900px) rotateY(90deg)}
+.card .ccat{position:absolute;top:14px;left:16px;display:inline-flex;gap:6px;align-items:center;font-size:.82rem;font-weight:600}
+.card .face{position:absolute;top:14px;right:16px;font-size:.75rem;color:var(--muted);font-family:var(--f-mono)}
+.card .ask{font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.card .big{font-family:var(--f-display);font-weight:800;font-size:clamp(1.5rem,4.5vw,2.4rem);line-height:1.15;letter-spacing:-.01em;text-wrap:balance;max-width:24ch}
+.card .big.isdate{font-family:var(--f-mono);font-weight:500;letter-spacing:-.02em}
+.card .q{color:var(--muted);font-size:1rem;max-width:40ch}
+.card .notes{max-width:52ch;white-space:pre-wrap;text-align:left;font-size:1.02rem;border-top:1px solid var(--line);padding-top:12px}
+.card .tap{font-size:.8rem;color:var(--muted)}
+.mini{position:relative;width:min(420px,100%);height:34px;margin-top:4px}
+.mini .ml{position:absolute;left:0;right:0;top:10px;height:2px;background:var(--fg);opacity:.5}
+.mini .mp{position:absolute;top:5px;width:12px;height:12px;border-radius:50%;transform:translateX(-6px)}
+.mini .mb{position:absolute;top:7px;height:8px;border-radius:3px}
+.mini .me{position:absolute;top:18px;font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
+.grade{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.grade .btn{min-width:150px}
+.btn.good{background:#2f9e5b;border-color:#2f9e5b;color:#fff}
+.keys{font-size:.8rem;color:var(--muted);text-align:center}
+kbd{font-family:var(--f-mono);font-size:.75rem;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface)}
+.result{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:28px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.result .score{font-family:var(--f-display);font-weight:800;font-size:3rem;line-height:1}
+.result ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;text-align:left;max-width:100%}
+.share .sharehead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.checks{display:flex;flex-direction:column;gap:6px;max-height:40vh;overflow:auto}
+.checks .toggle{color:var(--fg)}
+fieldset.bare{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+input[type=file]{font-size:.9rem;max-width:100%}
+.skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.skin{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left}
+.skin[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.skinprev{display:flex;gap:4px;height:58px;border-radius:6px;padding:8px;box-sizing:border-box}
+.skinprev.auto{padding:0;overflow:hidden}
+.skinprev.auto>span{border-radius:0}
+.skinprev>span{flex:1;border-radius:4px;padding:6px;display:flex;flex-direction:column;gap:5px}
+.skinprev i{display:block;height:6px;border-radius:3px;width:80%}
+.skinname{font-weight:600;font-size:.9rem}
+.btn.icon{width:36px;padding:7px 0;font-family:var(--f-mono)}
+.titlerow{display:flex;gap:8px}
+.titlerow input{flex:1;min-width:0}
+.starbtn{flex:none;width:42px;border:1px solid var(--line);background:var(--bg);border-radius:7px;font-size:1.2rem;line-height:1;color:var(--muted)}
+.starbtn[aria-pressed="true"]{color:#d98a1c;border-color:#d98a1c}
+.pop{position:fixed;z-index:15;width:min(280px,calc(100vw - 24px));background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow:0 10px 30px -10px color-mix(in srgb,#000 50%,transparent)}
+.pophead{display:flex;align-items:center;gap:6px;font-size:.8rem}
+.poptitle{font-family:var(--f-display);font-weight:600;font-size:1.05rem;line-height:1.25}
+.pop .row{margin-top:4px}
+.tour{position:fixed;inset:0;z-index:30}
+.spot{position:fixed;border-radius:10px;box-shadow:0 0 0 9999px color-mix(in srgb,#000 58%,transparent);outline:2px solid var(--accent);transition:all .25s ease;pointer-events:none}
+.spot.off{left:50%;top:50%;width:0;height:0;outline:0}
+.tcard{position:fixed;width:min(360px,calc(100vw - 24px));background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 16px 40px -12px color-mix(in srgb,#000 60%,transparent)}
+.tcard h2{font-size:1.15rem}
+.tcard p{margin:0;color:var(--fg)}
+.tstep{font-size:.75rem;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+<style>html{-webkit-text-size-adjust:100%}body{margin:0;font-size:15px}img{max-width:100%}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>Chronoline</h1><p>See how history fits together.</p></div>
+    <nav class="tabs" aria-label="Mode">
+      <a href="#timeline" id="tabTimeline" aria-current="page">Timeline</a>
+      <a href="#study" id="tabStudy">Study</a>
+    </nav>
+    <span class="status" id="status" aria-live="polite"></span>
+    <button class="btn icon" id="btnHelp" aria-label="Show the tour again" title="Show the tour again">?</button>
+    <button class="btn" id="btnTheme">Theme</button>
+    <button class="btn" id="btnShare">Import / Export</button>
+    <button class="btn" id="btnCats">Categories</button>
+    <button class="btn primary" id="btnAdd">Add event</button>
+  </header>
+  <div class="notice" id="localNote" hidden>Your timeline is saved in this browser. To move it to another device or keep a backup, use Import / Export.</div>
+
+  <div id="viewStudy" class="study" hidden></div>
+
+  <div id="viewTimeline" class="view">
+  <div class="filters" id="filters" role="toolbar" aria-label="Filter by category"></div>
+
+  <section class="tl" aria-label="Timeline">
+    <div class="tl-bar">
+      <span class="range" id="range"></span>
+      <label class="toggle"><input type="checkbox" id="stack" checked> One row per category</label>
+      <div class="zoom">
+        <button id="zIn" aria-label="Zoom in">+</button>
+        <button id="zOut" aria-label="Zoom out">−</button>
+        <button id="zFit" class="wide">Fit all</button>
+      </div>
+    </div>
+    <div class="viewport" id="vp">
+      <div class="track" id="track"></div>
+    </div>
+    <div class="hint">Drag to move through time · scroll or pinch to zoom · click a numbered bubble to zoom into a crowd · hover a dot to see its name</div>
+  </section>
+
+  <div class="lower">
+    <section class="panel detail" id="detail" aria-live="polite"></section>
+    <section class="panel">
+      <div class="listhead"><h2>Events in order</h2><span class="muted mono" id="count"></span></div>
+      <ul class="list" id="list"></ul>
+    </section>
+  </div>
+  </div>
+</div>
+<div id="modalRoot"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+// ---------- accounts and storage (Supabase) ----------
+// The app talks to a small storage interface; this file provides it using Supabase,
+// and shows the log-in screen before the app starts.
+(function(){
+  const cfg = window.CHRONOLINE_CONFIG || {};
+  const configured = !!(cfg.supabaseUrl && cfg.supabaseAnonKey && !/YOUR-/.test(cfg.supabaseUrl + cfg.supabaseAnonKey));
+  const sb = configured && window.supabase ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
+  let session = null;
+  const GUEST_KEY = "chronoline-guest";
+
+  // files: a normal website can download directly
+  const downloads = {
+    async save({ filename, data }) {
+      const blob = data instanceof Blob ? data : new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      return { status: "saved" };
+    }
+  };
+
+  // one row per person in the "timelines" table holds their whole timeline
+  function timelineStore(uid) {
+    return { doc() { return {
+      onSnapshot(next, onErr) {
+        let stopped = false;
+        (async () => {
+          const { data, error } = await sb.from("timelines").select("data").eq("user_id", uid).maybeSingle();
+          if (stopped) return;
+          if (error) { onErr && onErr({ code: "unavailable", message: error.message }); return; }
+          next({ exists: !!data, data: () => (data ? data.data : undefined), metadata: { fromCache: false, hasPendingWrites: false } });
+        })();
+        return () => { stopped = true; };
+      },
+      async set(body) {
+        const { error } = await sb.from("timelines").upsert({ user_id: uid, data: body, updated_at: new Date().toISOString() });
+        if (error) {
+          const e = new Error(error.message);
+          e.code = /check constraint|too large|size/i.test(error.message) ? "quota_exceeded" : "unavailable";
+          throw e;
+        }
+      }
+    }; } };
+  }
+
+  window.claude = {
+    async use(name) {
+      if (name === "downloads") return downloads;
+      if (!session) return null;               // guest: the app saves in this browser instead
+      if (name === "db") return timelineStore(session.user.id);
+      if (name === "user") return { id: async () => session.user.id, isOwner: async () => true, can: async () => true };
+      return null;
+    }
+  };
+
+  // ---------- log-in screen ----------
+  const h = (tag, attrs, ...kids) => {
+    const n = document.createElement(tag);
+    for (const k in attrs || {}) {
+      const v = attrs[k]; if (v == null || v === false) continue;
+      if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+      else if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const c of kids.flat()) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+    return n;
+  };
+
+  function showAuth(startApp, mode) {
+    mode = mode || "login";
+    const old = document.getElementById("auth"); if (old) old.remove();
+    const err = h("p", { class: "err", hidden: true });
+    const ok = h("p", { class: "authok", hidden: true });
+    const email = h("input", { type: "email", id: "authEmail", autocomplete: "email", placeholder: "you@example.com", required: true });
+    const pass = h("input", { type: "password", id: "authPass", autocomplete: mode === "signup" ? "new-password" : "current-password", placeholder: mode === "signup" ? "At least 6 characters" : "", minlength: "6" });
+    const say = (el, t) => { err.hidden = true; ok.hidden = true; el.textContent = t; el.hidden = false; };
+    const busy = (b, on) => { b.disabled = on; };
+
+    async function submit(ev) {
+      ev.preventDefault();
+      const btn = form.querySelector("button[type=submit]");
+      const e = email.value.trim(), p = pass.value;
+      if (!e) return say(err, "Enter your email address.");
+      if (mode === "reset") {
+        busy(btn, true);
+        const { error } = await sb.auth.resetPasswordForEmail(e, { redirectTo: location.origin + location.pathname });
+        busy(btn, false);
+        return error ? say(err, error.message) : say(ok, "If that email has an account, a link to reset the password is on its way.");
+      }
+      if (p.length < 6) return say(err, "The password needs at least 6 characters.");
+      busy(btn, true);
+      if (mode === "signup") {
+        const { data, error } = await sb.auth.signUp({ email: e, password: p, options: { emailRedirectTo: location.origin + location.pathname } });
+        busy(btn, false);
+        if (error) return say(err, error.message);
+        if (!data.session) return say(ok, "Almost done: open the email we just sent and click the link to confirm your account. Then log in here.");
+        return; // signed in straight away; the auth listener starts the app
+      }
+      const { error } = await sb.auth.signInWithPassword({ email: e, password: p });
+      busy(btn, false);
+      if (error) say(err, /invalid/i.test(error.message) ? "That email and password don't match an account." : error.message);
+    }
+
+    const titles = { login: "Log in", signup: "Create an account", reset: "Reset your password" };
+    const form = h("form", { class: "authcard", onsubmit: submit, novalidate: true },
+      h("div", { class: "authbrand" }, h("h1", null, "Chronoline"), h("p", null, "See how history fits together.")),
+      configured ? [
+        h("div", { class: "tabs" },
+          h("a", { href: "#", "aria-current": mode === "login" ? "page" : null, onclick: e => { e.preventDefault(); showAuth(startApp, "login"); } }, "Log in"),
+          h("a", { href: "#", "aria-current": mode === "signup" ? "page" : null, onclick: e => { e.preventDefault(); showAuth(startApp, "signup"); } }, "Sign up")),
+        h("h2", null, titles[mode]),
+        h("div", { class: "field" }, h("label", { for: "authEmail" }, "Email"), email),
+        mode !== "reset" ? h("div", { class: "field" }, h("label", { for: "authPass" }, "Password"), pass) : null,
+        err, ok,
+        h("button", { type: "submit", class: "btn primary" }, mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Send reset link"),
+        mode === "login" ? h("a", { href: "#", class: "authlink", onclick: e => { e.preventDefault(); showAuth(startApp, "reset"); } }, "Forgot your password?") : null,
+        mode === "reset" ? h("a", { href: "#", class: "authlink", onclick: e => { e.preventDefault(); showAuth(startApp, "login"); } }, "Back to log in") : null,
+        h("div", { class: "author" }, h("span", null, "or"))
+      ] : h("p", { class: "notice" }, "Accounts aren't set up on this site yet, so timelines are saved in your browser."),
+      h("button", { type: "button", class: "btn", onclick: () => { try { localStorage.setItem(GUEST_KEY, "1"); } catch (e) {} startApp(); } },
+        "Try it without an account"),
+      configured ? h("p", { class: "muted authsmall" }, "Without an account your timeline is saved only in this browser.") : null);
+    const wrap = h("div", { id: "auth", class: "auth" }, form);
+    document.body.append(wrap);
+    (mode === "reset" || !configured ? form.querySelector("button") : email).focus();
+  }
+  const closeAuth = () => { const a = document.getElementById("auth"); if (a) a.remove(); };
+
+  function showNewPassword() {
+    const err = h("p", { class: "err", hidden: true }), ok = h("p", { class: "authok", hidden: true });
+    const pass = h("input", { type: "password", id: "newPass", autocomplete: "new-password", minlength: "6" });
+    const form = h("form", { class: "authcard", novalidate: true, onsubmit: async ev => {
+        ev.preventDefault();
+        if (pass.value.length < 6) { err.textContent = "The password needs at least 6 characters."; err.hidden = false; return; }
+        const { error } = await sb.auth.updateUser({ password: pass.value });
+        if (error) { err.textContent = error.message; err.hidden = false; return; }
+        ok.textContent = "Password changed. Loading your timeline…"; ok.hidden = false; err.hidden = true;
+        setTimeout(() => location.replace(location.pathname), 900);
+      } },
+      h("div", { class: "authbrand" }, h("h1", null, "Chronoline")),
+      h("h2", null, "Choose a new password"),
+      h("div", { class: "field" }, h("label", { for: "newPass" }, "New password"), pass), err, ok,
+      h("button", { type: "submit", class: "btn primary" }, "Save password"));
+    closeAuth(); document.body.append(h("div", { id: "auth", class: "auth" }, form)); pass.focus();
+  }
+
+  // log in / log out button in the header
+  function addAccountButton(startApp) {
+    const head = document.querySelector("header.top"); if (!head) return;
+    const old = document.getElementById("btnAccount"); if (old) old.remove();
+    const b = session
+      ? h("button", { class: "btn", id: "btnAccount", title: "Logged in as " + session.user.email, onclick: async () => { await sb.auth.signOut(); location.reload(); } }, "Log out")
+      : h("button", { class: "btn", id: "btnAccount", onclick: () => { try { localStorage.removeItem(GUEST_KEY); } catch (e) {} location.reload(); } }, configured ? "Log in" : "Accounts");
+    if (!session && !configured) return;
+    head.append(b);
+  }
+
+  let started = false;
+  window.authGate = async function (startApp) {
+    const start = () => { if (started) return; started = true; closeAuth(); startApp(); addAccountButton(startApp); };
+    if (!sb) {
+      let guest = false; try { guest = localStorage.getItem(GUEST_KEY) === "1"; } catch (e) {}
+      if (guest || !configured) { start(); return; }
+    }
+    if (sb) {
+      sb.auth.onAuthStateChange((event, s) => {
+        if (event === "PASSWORD_RECOVERY") { session = s; showNewPassword(); return; }
+        if (s && !session) { session = s; start(); }
+        if (event === "SIGNED_OUT") session = null;
+      });
+      const { data } = await sb.auth.getSession();
+      if (data && data.session) { session = data.session; if (!/type=recovery/.test(location.hash)) start(); return; }
+      if (/type=recovery/.test(location.hash)) return; // the listener shows the new-password form
+    }
+    let guest = false; try { guest = localStorage.getItem(GUEST_KEY) === "1"; } catch (e) {}
+    if (guest) start(); else showAuth(start);
+  };
+})();
+</script>
+<script>
+(function(){
+const PALETTE=["#2f9e5b","#d98a1c","#3a6fe0","#c8364a","#8a4fd1","#1f9fb0","#b5652a","#d0479a","#5c7a1f","#6b7385"];
+const LS_KEY="chronoline-local-v1";
+let state={v:1,categories:[],events:[]};
+let selected=null;          // event id
+let active=new Set();       // empty = all categories
+let view={start:-800,end:2050};
+let isOwner=false,unsub=null,ref=null, saving=false, dirty=false, saveTimer=null, localMode=false;
+
+const $=s=>document.querySelector(s);
+function el(tag,attrs,...kids){const n=document.createElement(tag);if(attrs)for(const k in attrs){const v=attrs[k];if(v==null||v===false)continue;if(k==="onsubmit"&&tag==="form"){const h=v;n.addEventListener("submit",h);n.addEventListener("click",ev=>{const b=ev.target.closest('[type="submit"]');if(b&&n.contains(b)&&!b.disabled){ev.preventDefault();h(ev)}});n.addEventListener("keydown",ev=>{const t=ev.target;if(ev.key==="Enter"&&!ev.isComposing&&(t.tagName==="SELECT"||(t.tagName==="INPUT"&&!/^(checkbox|radio|button|submit)$/.test(t.type)))){ev.preventDefault();t.dispatchEvent(new Event("change",{bubbles:true}));h(ev)}});continue}if(k==="class")n.className=v;else if(k==="style")n.style.cssText=v;else if(k.startsWith("on"))n.addEventListener(k.slice(2),v);else if(k==="text")n.textContent=v;else n.setAttribute(k,v===true?"":v)}for(const c of kids.flat()){if(c==null||c===false)continue;n.append(c.nodeType?c:document.createTextNode(String(c)))}return n}
+// append children, skipping empty ones (the DOM would otherwise print "null")
+function add(n,...k){n.append(...k.flat().filter(x=>x!=null&&x!==false));return n}
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+/* time: astronomical year numbers. AD y -> y, BC y -> 1-y */
+const toAstro=(y,era)=>era==="BC"?1-y:y;
+const fromAstro=a=>a>=1?{y:a,era:"AD"}:{y:1-a,era:"BC"};
+function fmtYear(a){const f=fromAstro(a);return f.era==="AD"?String(f.y):f.y+" BC"}
+const MDAYS=[31,28,31,30,31,30,31,31,30,31,30,31];
+const CUM=MDAYS.reduce((a,n,i)=>(a.push(a[i]+n),a),[0]);
+function tOf(y,m,d){if(!m)return y;return y+(CUM[m-1]+(d?d-1:0))/365}
+function evStart(e){return tOf(e.y,e.m,e.d)}
+function evEnd(e){if(e.ey==null)return null;return tOf(e.ey,e.em,e.ed)+(e.ed?1/365:e.em?MDAYS[e.em-1]/365:1)}
+function fmtDate(y,m,d){return (m?(d?d+" ":"")+MONTHS[m-1]+" ":"")+fmtYear(y)}
+function fmtWhen(e){let s=fmtDate(e.y,e.m,e.d);if(e.ey!=null)s+=" – "+fmtDate(e.ey,e.em,e.ed);return s}
+function fmtGap(d){const a=Math.abs(d);
+  if(a<0.5/365)return "same day";
+  if(a<1/12){const dd=Math.round(a*365);return dd+" day"+(dd>1?"s":"")}
+  if(a<1){const mo=Math.round(a*12);return mo+" month"+(mo>1?"s":"")}
+  const y=Math.round(a);return y+" year"+(y>1?"s":"")}
+const catOf=id=>state.categories.find(c=>c.id===id);
+const colorOf=e=>{const c=catOf(e.cat);return c?c.color:"#6b7385"};
+const visibleEvents=()=>state.events.filter(e=>active.size===0||active.has(e.cat||"_none"));
+
+/* ---------- storage ---------- */
+function setStatus(t){$("#status").textContent=t}
+function persist(){dirty=true;clearTimeout(saveTimer);setStatus("Unsaved changes");saveTimer=setTimeout(flush,500)}
+async function flush(){
+  if(saving||!dirty)return;
+  saving=true;dirty=false;setStatus("Saving…");
+  try{
+    if(localMode){try{localStorage.setItem(LS_KEY,JSON.stringify(state))}catch(e){}}
+    else await ref.set(JSON.parse(JSON.stringify(state)));
+    setStatus(localMode?"Saved in this browser":"Saved");
+  }catch(e){
+    const code=e&&e.code;
+    if(!localMode&&!isOwner&&["invalid_argument","not_granted","revoked","capability_disabled","capability_removed"].includes(code)){
+      saving=false;switchToBrowser();return;
+    }
+    setStatus(code==="quota_exceeded"?"Storage is full — delete some events":"Couldn't save — will retry");
+    if(code!=="quota_exceeded"){dirty=true;setTimeout(flush,3000)}
+  }
+  saving=false;
+  if(dirty)flush();
+}
+function switchToBrowser(){
+  // keep what's on screen, save it locally from now on
+  if(unsub){try{unsub()}catch(e){}unsub=null}
+  localMode=true;$("#localNote").hidden=false;
+  try{localStorage.setItem("chronoline-browser-mode","1")}catch(e){}
+  dirty=true;flush();
+}
+function useLocal(){
+  localMode=true;$("#localNote").hidden=false;
+  try{const raw=localStorage.getItem(LS_KEY);if(raw)state=normalize(JSON.parse(raw))}catch(e){}
+  fitAll();render();setStatus("");maybeTour();
+}
+// stored data arrives read-only (frozen), so work on a private copy
+function normalize(d){
+  d=JSON.parse(JSON.stringify(d||{}));
+  const cats=Array.isArray(d.categories)?d.categories:[],evs=Array.isArray(d.events)?d.events:[];
+  for(const e of evs){if(typeof e.note!=="string"||e.note==="null")e.note=""}
+  return{v:1,categories:cats,events:evs,tourDone:!!d.tourDone,skin:typeof d.skin==="string"?d.skin:undefined};
+}
+
+async function boot(){
+  route();setStatus("Loading…");
+  let db=null,user=null;
+  try{[db,user]=await Promise.all([claude.use("db"),claude.use("user")])}catch(e){}
+  const id=user?await user.id():null;
+  if(!db||!id){useLocal();return}
+  try{isOwner=!!(await user.isOwner())}catch(e){}
+  let browserMode=false;try{browserMode=localStorage.getItem("chronoline-browser-mode")==="1"}catch(e){}
+  let canWrite=null;try{canWrite=await user.can("data.write")}catch(e){}
+  if(browserMode||canWrite===false){useLocal();return}
+  ref=db.doc("data/users/"+id+"/timeline");
+  let first=true;
+  const timer=setTimeout(()=>{if(first)setStatus("Can't reach your saved timeline yet…")},10000);
+  unsub=ref.onSnapshot(snap=>{
+    if(snap.metadata.hasPendingWrites||saving||dirty)return;
+    if(!snap.metadata.fromCache){clearTimeout(timer)}
+    state=snap.exists?normalize(snap.data()):{v:1,categories:[],events:[]};
+    if(first){first=false;fitAll();setStatus(snap.metadata.fromCache?"":"Saved")}
+    if(selected&&!state.events.some(e=>e.id===selected))selected=null;
+    render();
+    if(state.skin){applySkin(state.skin==="auto"?null:state.skin);try{localStorage.setItem("chronoline-skin",state.skin)}catch(e){}}
+    if(!snap.metadata.fromCache)maybeTour();
+  },err=>{clearTimeout(timer);setStatus("Saving is unavailable right now");maybeTour();});
+}
+
+/* ---------- view ---------- */
+function fitAll(){
+  const evs=visibleEvents();
+  if(!evs.length){view={start:-800,end:2050};return}
+  let lo=Infinity,hi=-Infinity;
+  for(const e of evs){lo=Math.min(lo,evStart(e));hi=Math.max(hi,evEnd(e)??evStart(e))}
+  let span=Math.max(hi-lo,10);const pad=span*.08+2;
+  view={start:lo-pad,end:hi+pad+span*.12};
+}
+function clampView(){
+  let span=view.end-view.start;
+  span=Math.min(Math.max(span,0.2),30000);
+  const mid=(view.start+view.end)/2;
+  view={start:mid-span/2,end:mid+span/2};
+  if(view.start<-20000){view.end+= -20000-view.start;view.start=-20000}
+  if(view.end>3000){view.start-=view.end-3000;view.end=3000}
+}
+function zoomAt(factor,frac){
+  const span=view.end-view.start;const at=view.start+span*frac;const ns=span*factor;
+  view={start:at-ns*frac,end:at-ns*frac+ns};clampView();drawTimeline();
+}
+const NICE=[1,2,5,10,20,25,50,100,200,250,500,1000,2000,2500,5000,10000];
+function tickStep(pxPerYear){for(const s of NICE)if(s*pxPerYear>=90)return s;return 10000}
+
+/* ---------- render ---------- */
+function render(){
+  if(mode==="study"){renderStudy();return}
+  renderFilters();drawTimeline();renderDetail();renderList();
+}
+
+function renderFilters(){
+  const f=$("#filters");f.replaceChildren();
+  const counts={};for(const e of state.events){const k=e.cat||"_none";counts[k]=(counts[k]||0)+1}
+  f.append(el("button",{class:"chip","aria-pressed":String(active.size===0),onclick:()=>{active.clear();fitAll();render()}},"All categories",el("span",{class:"n"},state.events.length)));
+  const cats=[...state.categories];
+  if(counts._none)cats.push({id:"_none",name:"No category",color:"#6b7385"});
+  for(const c of cats){
+    f.append(el("button",{class:"chip","aria-pressed":String(active.has(c.id)),title:"Click to show only this · Shift-click to add to selection",onclick:ev=>{
+      if(ev.shiftKey||ev.metaKey||ev.ctrlKey){active.has(c.id)?active.delete(c.id):active.add(c.id)}
+      else{if(active.size===1&&active.has(c.id))active.clear();else{active.clear();active.add(c.id)}}
+      fitAll();render();
+    }},el("span",{class:"sw",style:"background:"+c.color}),c.name,el("span",{class:"n"},counts[c.id]||0)));
+  }
+  if(state.categories.length>1)f.append(el("span",{class:"muted",style:"font-size:.82rem"},"Shift-click to combine"));
+}
+
+function buildTicks(ppy){
+  const out=[];
+  if(ppy/12>=70){
+    for(let y=Math.floor(view.start);y<=view.end;y++)for(let m=1;m<=12;m++){
+      const t=tOf(y,m);if(t<view.start||t>view.end)continue;
+      out.push({t,label:MONTHS[m-1]+(m===1?" "+fmtYear(y):""),major:m===1});
+    }
+    return out;
+  }
+  const step=tickStep(ppy);const major=step*5;
+  const dStart=view.start>0?view.start:view.start-1, dEnd=view.end>0?view.end:view.end-1;
+  // minor marks between labelled years, like a ruler
+  const sub=step>=5&&step%5===0?step/5:step%2===0?step/2:0;
+  for(let d=Math.ceil(dStart/step)*step;d<=dEnd;d+=step){
+    if(d!==0)out.push({t:d>0?d:d+1,label:d>0?String(d):(-d)+" BC",major:d%major===0});
+    if(sub)for(let k=1;k<step/sub;k++){const dd=d+k*sub;if(dd!==0&&dd<=dEnd)out.push({t:dd>0?dd:dd+1,minor:true})}
+  }
+  return out;
+}
+
+const MAXTITLE=230;
+const measureCtx=document.createElement("canvas").getContext("2d");
+const widthCache=new Map();
+function textWidth(text,font){
+  const k=font+"|"+text;let w=widthCache.get(k);
+  if(w==null){measureCtx.font=font;w=measureCtx.measureText(text).width;widthCache.set(k,w)}
+  return w;
+}
+function labelWidth(e){
+  const rem=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
+  const tw=Math.min(textWidth(e.title,(0.84*rem)+'px "Source Sans 3", "Segoe UI", system-ui, sans-serif'),MAXTITLE);
+  const yw=textWidth(fmtWhen(e),(0.7*rem)+'px "IBM Plex Mono", ui-monospace, Menlo, monospace');
+  return Math.ceil(tw+yw+6)+4+(e.key?16:0);
+}
+function drawTimeline(){
+  hidePop();
+  const vp=$("#vp"),track=$("#track");
+  const W=vp.clientWidth||800;const span=view.end-view.start;const ppy=W/span;
+  const x=t=>(t-view.start)*ppy;
+  $("#range").textContent=fmtYear(Math.floor(view.start))+"  →  "+fmtYear(Math.ceil(view.end))+"   ·   "+fmtGap(span)+" shown";
+  track.replaceChildren();
+  const evs=visibleEvents();
+  if(!state.events.length){track.append(emptyState());return}
+  if(!evs.length){track.append(el("div",{class:"empty"},el("p",null,"No events in this category yet.")));return}
+
+  const ticks=buildTicks(ppy);
+  const now=new Date();const nowT=now.getFullYear()+(CUM[now.getMonth()]+now.getDate()-1)/365;
+
+  const stacked=$("#stack").checked;
+  let groups;
+  if(stacked){
+    const ids=[...new Set(evs.map(e=>e.cat||"_none"))];
+    const order=[...state.categories.map(c=>c.id),"_none"];
+    ids.sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+    groups=ids.map(id=>({cat:id==="_none"?{name:"No category",color:"#6b7385"}:catOf(id),evs:evs.filter(e=>(e.cat||"_none")===id)}));
+  }else groups=[{cat:null,evs}];
+
+  const LANE=28, ROW=32, YLAB=26, MAXL=4, MAXR=4;
+  // who gets label space first: the selected event, then key events, then by date
+  const prio=(a,b)=>((b.id===selected)-(a.id===selected))||((!!b.key)-(!!a.key))||(evStart(a)-evStart(b));
+  const fits=(lane,l,r)=>lane.every(([a,b])=>r<=a||l>=b);
+  for(const g of groups){
+    const pts=[],pers=[];
+    for(const e of g.evs){
+      const end=evEnd(e),x0=x(evStart(e));
+      if(end==null){if(x0>=-300&&x0<=W+300)pts.push({e,x0})}
+      else{const x1=x(end);if(x1>=-50&&x0<=W+50)pers.push({e,x0,x1})}
+    }
+    // short events: at most MAXL rows of names; the rest become dots on the line
+    const pLanes=[],points=[],loose=[];
+    for(const p of pts.sort((a,b)=>prio(a.e,b.e))){
+      const l=p.x0-8,r=l+labelWidth(p.e)+34;
+      let lane=pLanes.findIndex(ln=>fits(ln,l,r));
+      if(lane<0&&pLanes.length<MAXL){lane=pLanes.length;pLanes.push([])}
+      if(lane<0){loose.push(p);continue}
+      pLanes[lane].push([l,r]);p.lane=lane;points.push(p);
+    }
+    // long events: at most MAXR rows of blocks; overlapping ones never share a row
+    const rows=[],periods=[],over=[];
+    for(const p of pers.sort((a,b)=>prio(a.e,b.e))){
+      p.bx=Math.max(p.x0,-2);p.bw=Math.max(p.x1-p.bx,4);
+      const l=p.x0,r=Math.max(p.x1,p.bx+labelWidth(p.e)+24)+6;
+      let row=rows.findIndex(rw=>fits(rw,l,r));
+      if(row<0&&rows.length<MAXR){row=rows.length;rows.push([])}
+      if(row<0){over.push(p);continue}
+      rows[row].push([l,r]);p.row=row;periods.push(p);
+    }
+    // dots that sit too close together merge into one numbered bubble
+    const clusters=[];
+    for(const p of loose.sort((a,b)=>a.x0-b.x0)){
+      const c=clusters[clusters.length-1];
+      if(c&&p.x0-c.last<16){c.items.push(p);c.last=p.x0}else clusters.push({items:[p],last:p.x0});
+    }
+    // overflowing blocks merge into "+N more" strips
+    const strips=[];
+    for(const p of over.sort((a,b)=>a.bx-b.bx)){
+      const st=strips[strips.length-1];
+      if(st&&p.bx<=st.r+10){st.items.push(p);st.r=Math.max(st.r,p.bx+p.bw)}else strips.push({items:[p],l:p.bx,r:p.bx+p.bw});
+    }
+    const extraRow=strips.length?1:0;
+    const aboveH=Math.max(pLanes.length,1)*LANE+14;
+    const lineY=aboveH;
+    const belowH=YLAB+(rows.length+extraRow?(rows.length+extraRow)*ROW+8:4);
+    const gEl=el("div",{class:"group"});
+    if(g.cat)gEl.append(el("div",{class:"ghead"},el("span",{class:"sw",style:"background:"+g.cat.color}),g.cat.name));
+    const cv=el("div",{class:"canvas",style:"height:"+(aboveH+belowH)+"px"});
+
+    // faint grid behind everything
+    for(const tk of ticks)if(!tk.minor)cv.append(el("div",{class:"gl",style:"left:"+x(tk.t)+"px"}));
+    if(nowT>=view.start&&nowT<=view.end)cv.append(el("div",{class:"gl now",style:"left:"+x(nowT)+"px",title:"Today"}));
+
+    // the line and its year marks
+    cv.append(el("div",{class:"line",style:"top:"+(lineY-1)+"px"}));
+    for(const tk of ticks){
+      cv.append(el("div",{class:"ymark"+(tk.minor?" minor":""),style:"left:"+x(tk.t)+"px;top:"+lineY+"px"}));
+      if(tk.label)cv.append(el("div",{class:"ylab"+(tk.major?" major":""),style:"left:"+x(tk.t)+"px;top:"+(lineY+8)+"px"},tk.label));
+    }
+
+    // long events: blocks below, plus the stretch of line they cover when selected
+    for(const p of periods){
+      const c=colorOf(p.e);const top=lineY+YLAB+p.row*ROW;const sel=selected===p.e.id;
+      if(sel){
+        cv.append(el("div",{class:"span",style:"left:"+p.bx+"px;width:"+p.bw+"px;top:"+lineY+"px;background:"+c}));
+        for(const gx of [p.x0,p.x1])if(gx>=0&&gx<=W)cv.append(el("div",{class:"guide",style:"--c:"+c+";left:"+gx+"px;top:"+lineY+"px;height:"+(top-lineY)+"px"}));
+      }
+      const b=el("button",{"data-id":p.e.id,class:"blk"+(sel?" sel":""),style:"left:"+p.bx+"px;width:"+p.bw+"px;top:"+top+"px;--c:"+c,"aria-label":p.e.title+", "+fmtWhen(p.e),title:p.e.title+" · "+fmtWhen(p.e)},
+        p.e.key?el("span",{class:"star","aria-hidden":"true"},"★"):null,el("span",{class:"tt"},p.e.title),el("span",{class:"yr"},fmtWhen(p.e)));
+      b.addEventListener("click",()=>pickOnTimeline(p.e));
+      cv.append(b);
+    }
+
+    // short events: a pin on the line, a stalk up, a label at the top
+    for(const p of points){
+      const c=colorOf(p.e);const top=lineY-(p.lane+1)*LANE-6;const sel=selected===p.e.id;
+      cv.append(el("div",{class:"stalk",style:"left:"+p.x0+"px;top:"+(top+22)+"px;height:"+(lineY-top-22)+"px;background:"+c}));
+      cv.append(el("div",{class:"pin",style:"left:"+p.x0+"px;top:"+lineY+"px;background:"+c+(sel?";box-shadow:0 0 0 2px var(--fg)":"")}));
+      const b=el("button",{"data-id":p.e.id,class:"ev"+(sel?" sel":""),style:"left:"+(p.x0-8)+"px;top:"+top+"px;--c:"+c,"aria-label":p.e.title+", "+fmtWhen(p.e),title:p.e.title+" · "+fmtWhen(p.e)},
+        p.e.key?el("span",{class:"star","aria-hidden":"true"},"★"):null,el("span",{class:"tt"},p.e.title),el("span",{class:"yr"},fmtWhen(p.e)));
+      b.addEventListener("click",()=>pickOnTimeline(p.e));
+      cv.append(b);
+    }
+    for(const c of clusters){
+      if(c.items.length===1){
+        const p=c.items[0];
+        const b=el("button",{"data-id":p.e.id,class:"dot0",style:"left:"+p.x0+"px;top:"+lineY+"px;background:"+colorOf(p.e),"aria-label":p.e.title+", "+fmtWhen(p.e),title:p.e.title+" · "+fmtWhen(p.e)});
+        b.addEventListener("click",()=>pickOnTimeline(p.e));
+        cv.append(b);continue;
+      }
+      const mid=c.items.reduce((a,p)=>a+p.x0,0)/c.items.length;
+      const cols=[...new Set(c.items.map(p=>colorOf(p.e)))];
+      const n=c.items.length;
+      const b=el("button",{class:"clu",style:"left:"+mid+"px;top:"+lineY+"px;"+(cols.length===1?"--c:"+cols[0]:""),
+        "aria-label":n+" events close together. Click to zoom in.",title:n+" events · click to zoom in"},n);
+      b.addEventListener("click",()=>openCluster(c.items.map(p=>p.e)));
+      cv.append(b);
+    }
+    for(const st of strips){
+      const top=lineY+YLAB+rows.length*ROW;const n=st.items.length;
+      const b=el("button",{class:"more",style:"left:"+st.l+"px;width:"+Math.max(st.r-st.l,4)+"px;top:"+top+"px",
+        title:n+" more · click to zoom in"},"+"+n+" more");
+      b.addEventListener("click",()=>openCluster(st.items.map(p=>p.e)));
+      cv.append(b);
+    }
+    gEl.append(cv);track.append(gEl);
+  }
+}
+function openCluster(list){
+  let lo=Infinity,hi=-Infinity;
+  for(const e of list){lo=Math.min(lo,evStart(e));hi=Math.max(hi,evEnd(e)??evStart(e))}
+  const span=view.end-view.start;
+  if(hi-lo<0.02||span<=0.25){showCrowdList(list);return}
+  const pad=(hi-lo)*0.2+0.05;
+  view={start:lo-pad,end:hi+pad};clampView();drawTimeline();
+}
+function showCrowdList(list){
+  const ul=el("ul",{class:"list",style:"max-height:60vh"});
+  for(const e of [...list].sort((a,b)=>evStart(a)-evStart(b)))
+    ul.append(el("li",null,el("button",{onclick:()=>{selected=e.id;closeModal();render()}},
+      el("span",{class:"y"},fmtDate(e.y,e.m,e.d)),el("span",{class:"sw",style:"background:"+colorOf(e)}),el("span",{class:"t"},(e.key?"★ ":"")+e.title))));
+  showModal(el("div",{class:"modal"},el("h2",null,list.length+" events at almost the same time"),ul,
+    el("div",{class:"modal-actions"},el("button",{class:"btn",type:"button",onclick:closeModal},"Close"))));
+}
+function pickOnTimeline(e){
+  selected=e.id;render();
+  const a=[...document.querySelectorAll("#track [data-id]")].find(n=>n.dataset.id===e.id);
+  if(a)showPop(a,e);
+}
+function hidePop(){const p=$("#pop");if(p)p.remove()}
+function showPop(anchor,e){
+  hidePop();
+  const c=catOf(e.cat);
+  const pop=el("div",{id:"pop",class:"pop",role:"dialog","aria-label":e.title},
+    el("div",{class:"pophead"},el("span",{class:"sw",style:"background:"+colorOf(e)}),el("span",{class:"muted"},c?c.name:"No category")),
+    el("div",{class:"poptitle"},(e.key?"★ ":"")+e.title),
+    el("div",{class:"mono muted",style:"font-size:.82rem"},fmtWhen(e)),
+    el("div",{class:"row"},
+      el("button",{class:"btn small primary",onclick:()=>{hidePop();openEvent(e)}},"Edit"),
+      el("button",{class:"btn small",onclick:hidePop},"Close")));
+  document.body.append(pop);
+  const r=anchor.getBoundingClientRect(),pw=pop.offsetWidth,ph=pop.offsetHeight,vw=innerWidth,vh=innerHeight;
+  let left=Math.min(Math.max(r.left,12),vw-pw-12);
+  let top=r.bottom+8;if(top+ph>vh-12)top=Math.max(12,r.top-ph-8);
+  pop.style.left=left+"px";pop.style.top=top+"px";
+  pop.querySelector("button").focus({preventScroll:true});
+}
+document.addEventListener("pointerdown",ev=>{const p=$("#pop");if(p&&!p.contains(ev.target))hidePop()},true);
+window.addEventListener("scroll",hidePop,true);
+function emptyState(){
+  return el("div",{class:"empty"},
+    el("h2",null,"Your timeline is empty"),
+    el("p",null,"Add events as you learn them. Give each one a category, like a country or a theme, and they'll line up so you can see what came before, after, and at the same time."),
+    el("div",{class:"row",style:"justify-content:center"},
+      el("button",{class:"btn primary",onclick:()=>openEvent()},"Add your first event"),
+      el("button",{class:"btn",onclick:loadExamples},"Load example events")));
+}
+
+function renderDetail(){
+  const d=$("#detail");d.replaceChildren();
+  const e=state.events.find(x=>x.id===selected);
+  if(!e){
+    d.append(el("h2",null,"Pick an event"),el("p",{class:"muted",style:"margin:0"},"Click any event on the timeline or in the list. You'll see how far it sits from the events around it, and what was happening elsewhere at the same time."));
+    return;
+  }
+  const c=catOf(e.cat);
+  add(d,
+    el("div",{class:"cat"},el("span",{class:"sw",style:"background:"+colorOf(e)}),c?c.name:"No category"),
+    el("h2",{style:"font-size:1.4rem"},e.title),
+    el("div",{class:"when"},fmtWhen(e)+(e.ey!=null?"  ·  lasted "+fmtGap(evEnd(e)-evStart(e)):"")),
+    e.note?el("p",{class:"note"},e.note):null);
+
+  const s=evStart(e);
+  const relItem=(o,label)=>el("li",null,el("button",{onclick:()=>{selected=o.id;centerOn(o);render()}},
+    el("span",{class:"gap"},label),el("span",{class:"sw",style:"background:"+colorOf(o)}),el("span",{class:"t"},o.title+" ("+fmtWhen(o)+")")));
+  const same=state.events.filter(o=>o.id!==e.id&&o.cat===e.cat).sort((a,b)=>evStart(a)-evStart(b));
+  const prev=[...same].reverse().find(o=>evStart(o)<=s&&o.id!==e.id&&(evStart(o)<s||same.indexOf(o)<same.indexOf(e)));
+  const next=same.find(o=>evStart(o)>=s&&(evStart(o)>s||same.indexOf(o)>same.indexOf(e)));
+  if(prev||next){
+    const ul=el("ul");
+    if(prev)ul.append(relItem(prev,fmtGap(s-evStart(prev))+" before"));
+    if(next)ul.append(relItem(next,fmtGap(evStart(next)-s)+" after"));
+    d.append(el("div",{class:"rel"},el("h3",null,"Before and after in "+(c?c.name:"this category")),ul));
+  }
+  const lo=s-25,hi=(evEnd(e)??s)+25;
+  const around=state.events.filter(o=>o.cat!==e.cat&&(evEnd(o)??evStart(o))>=lo&&evStart(o)<=hi)
+    .sort((a,b)=>Math.abs(evStart(a)-s)-Math.abs(evStart(b)-s)).slice(0,6);
+  if(around.length){
+    const ul=el("ul");
+    for(const o of around){const dd=evStart(o)-s;ul.append(relItem(o,Math.abs(dd)<0.5/365||(o.ey!=null&&evStart(o)<=s&&evEnd(o)>=s)?"at the same time":fmtGap(dd)+(dd<0?" earlier":" later")))}
+    d.append(el("div",{class:"rel"},el("h3",null,"Meanwhile elsewhere (within 25 years)"),ul));
+  }
+  d.append(el("div",{class:"row"},el("button",{class:"btn small",onclick:()=>openEvent(e)},"Edit"),el("button",{class:"btn small",onclick:()=>{centerOn(e);drawTimeline()}},"Show on timeline")));
+}
+
+function renderList(){
+  const ul=$("#list");ul.replaceChildren();
+  const evs=visibleEvents().sort((a,b)=>evStart(a)-evStart(b));
+  $("#count").textContent=evs.length+(evs.length===1?" event":" events");
+  if(!evs.length){ul.append(el("li",{class:"muted",style:"padding:6px"},"Nothing here yet."));return}
+  for(const e of evs){
+    ul.append(el("li",null,el("button",{class:selected===e.id?"sel":"",onclick:()=>{selected=e.id;centerOn(e);render()}},
+      el("span",{class:"y"},fmtDate(e.y,e.m,e.d)),el("span",{class:"sw",style:"background:"+colorOf(e)}),el("span",{class:"t"},(e.key?"★ ":"")+e.title))));
+  }
+}
+
+function centerOn(e){
+  const s=evStart(e),end=evEnd(e)??s;const span=view.end-view.start;
+  if(s>view.start+span*.05&&end<view.end-span*.05)return;
+  const mid=(s+end)/2;view={start:mid-span/2,end:mid+span/2};clampView();
+}
+
+/* ---------- interaction ---------- */
+const vp=$("#vp");
+// the whole timeline box responds to dragging, scrolling and pinching, not just the inner area
+const tlBox=$(".tl");
+const pointers=new Map();let drag=null,pinch=null,moved=false;
+const isControl=t=>!!(t.closest&&t.closest(".tl-bar button,.tl-bar input,.tl-bar label,.zoom"));
+tlBox.addEventListener("pointerdown",ev=>{
+  if(pointers.size===0)moved=false;   // a fresh press: forget the last drag
+  if(ev.pointerType==="mouse"&&ev.button!==0)return;
+  if(isControl(ev.target))return;
+  pointers.set(ev.pointerId,ev.clientX);
+  if(pointers.size===1)drag={x:ev.clientX,start:view.start,end:view.end};
+  if(pointers.size===2){const xs=[...pointers.values()];pinch={d:Math.abs(xs[0]-xs[1])||1,mid:(xs[0]+xs[1])/2,start:view.start,end:view.end};drag=null}
+});
+// follow the pointer on the whole window, so redrawing the timeline mid-drag can't lose it
+window.addEventListener("pointermove",ev=>{
+  if(!pointers.has(ev.pointerId))return;
+  pointers.set(ev.pointerId,ev.clientX);
+  const rect=vp.getBoundingClientRect();const W=rect.width||1;
+  if(pinch&&pointers.size===2){
+    const xs=[...pointers.values()];const d=Math.abs(xs[0]-xs[1])||1;
+    const span0=pinch.end-pinch.start;const frac=Math.min(1,Math.max(0,(pinch.mid-rect.left)/W));const at=pinch.start+span0*frac;
+    const ns=span0*pinch.d/d;view={start:at-ns*frac,end:at-ns*frac+ns};clampView();drawTimeline();moved=true;return;
+  }
+  if(drag){
+    const dx=ev.clientX-drag.x;
+    if(Math.abs(dx)>4&&!moved){moved=true;tlBox.classList.add("dragging");hidePop()}
+    if(moved){const dy=(drag.end-drag.start)*dx/W;view={start:drag.start-dy,end:drag.end-dy};clampView();drawTimeline()}
+  }
+});
+function endPtr(ev){if(!pointers.has(ev.pointerId))return;pointers.delete(ev.pointerId);if(pointers.size<2)pinch=null;if(pointers.size===0){drag=null;tlBox.classList.remove("dragging")}}
+window.addEventListener("pointerup",endPtr);window.addEventListener("pointercancel",endPtr);
+tlBox.addEventListener("click",ev=>{if(moved){ev.stopPropagation();ev.preventDefault();moved=false}},true);
+tlBox.addEventListener("wheel",ev=>{
+  if(ev.target.closest&&ev.target.closest(".zoom"))return;
+  const rect=vp.getBoundingClientRect();const frac=Math.min(1,Math.max(0,(ev.clientX-rect.left)/rect.width));
+  let dx=ev.deltaX,dy=ev.deltaY;
+  if(ev.deltaMode===1){dx*=16;dy*=16}else if(ev.deltaMode===2){dx*=rect.width;dy*=rect.width}
+  ev.preventDefault();hidePop();
+  if(ev.ctrlKey){zoomAt(Math.exp(dy*0.01),frac);return}           // trackpad pinch (Chrome, Edge, Firefox)
+  if(Math.abs(dx)>Math.abs(dy)||ev.shiftKey){                         // sideways swipe: move through time
+    const d=dx||dy;const span=view.end-view.start;
+    view={start:view.start+span*d/rect.width,end:view.end+span*d/rect.width};clampView();drawTimeline();return;
+  }
+  zoomAt(Math.exp(dy*0.0018),frac);                                   // up/down scroll: zoom
+},{passive:false});
+// Safari sends its own events for a trackpad pinch
+let gStart=null;
+tlBox.addEventListener("gesturestart",ev=>{ev.preventDefault();const r=vp.getBoundingClientRect();gStart={start:view.start,end:view.end,frac:Math.min(1,Math.max(0,((ev.clientX??r.left+r.width/2)-r.left)/r.width))}});
+tlBox.addEventListener("gesturechange",ev=>{
+  if(!gStart)return;ev.preventDefault();hidePop();
+  const span0=gStart.end-gStart.start,at=gStart.start+span0*gStart.frac,ns=span0/(ev.scale||1);
+  view={start:at-ns*gStart.frac,end:at-ns*gStart.frac+ns};clampView();drawTimeline();
+});
+tlBox.addEventListener("gestureend",ev=>{ev.preventDefault();gStart=null});
+$("#zIn").onclick=()=>zoomAt(1/1.6,.5);
+$("#zOut").onclick=()=>zoomAt(1.6,.5);
+$("#zFit").onclick=()=>{fitAll();drawTimeline()};
+$("#stack").onchange=()=>{try{localStorage.setItem("chronoline-stack",$("#stack").checked?"1":"0")}catch(e){}drawTimeline()};
+try{const s=localStorage.getItem("chronoline-stack");if(s!=null)$("#stack").checked=s==="1"}catch(e){}
+let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(drawTimeline,80)});
+$("#btnAdd").onclick=()=>openEvent();
+$("#btnCats").onclick=()=>openCategories();
+document.addEventListener("keydown",ev=>{
+  if(ev.key==="Escape"){hidePop();if(tourOpen())return endTour();closeModal();return}
+  if(mode!=="study"||study.phase!=="cards"||$("#modalRoot").childElementCount)return;
+  if(/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName||""))return;
+  if(ev.key===" "||ev.key==="Enter"){ev.preventDefault();flipCard()}
+  else if(ev.key==="1"&&study.face>0)grade(false);
+  else if(ev.key==="2"&&study.face>0)grade(true);
+  else if(ev.key==="ArrowLeft"&&study.i>0){study.i--;study.face=0;renderStudy()}
+});
+
+/* ---------- colour themes ---------- */
+const SKINS=[{id:"light",name:"Classic light",c:["#f2f4f7","#ffffff","#18202c","#2747c9"]},{id:"dark",name:"Classic dark",c:["#10141b","#181e28","#e6ebf3","#8ea4ff"]},{id:"parchment",name:"Parchment",c:["#f1e9da","#faf5ea","#2b2117","#8a3b1f"]},{id:"midnight",name:"Midnight",c:["#0b1020","#131a2e","#e8ecf6","#e8b54a"]},{id:"forest",name:"Forest",c:["#ecf2ec","#fbfdfb","#14251a","#1f7a4a"]},{id:"rose",name:"Rose",c:["#f8eef1","#fffafb","#2e1a20","#b2305e"]},{id:"ocean",name:"Deep sea",c:["#06181c","#0c2328","#e2f2f2","#3fd0c4"]},{id:"contrast",name:"High contrast",c:["#000000","#0b0b0b","#ffffff","#ffd400"]},{id:"bubblegum",name:"Bubblegum",c:["#ffd3e6","#ffeef6","#4a0a2a","#e6007a"]},{id:"candy",name:"Candy night",c:["#1f0716","#2e0b22","#ffe3f1","#ff4fb3"]},{id:"matcha",name:"Matcha",c:["#d6efc0","#ecf8e1","#173006","#2f8f12"]},{id:"jungle",name:"Jungle",c:["#06190b","#0c2713","#e2f7e5","#6ee36a"]},{id:"lavender",name:"Lavender",c:["#e6ddfb","#f5f0ff","#251246","#7b3fe4"]},{id:"sunset",name:"Sunset",c:["#ffe0c7","#fff2e6","#3d1606","#e8521c"]}];
+function applySkin(id){
+  if(id&&SKINS.some(k=>k.id===id))document.documentElement.setAttribute("data-skin",id);
+  else document.documentElement.removeAttribute("data-skin");
+}
+function currentSkin(){return document.documentElement.getAttribute("data-skin")||"auto"}
+try{applySkin(localStorage.getItem("chronoline-skin"))}catch(e){}
+function setSkin(id){
+  applySkin(id==="auto"?null:id);
+  try{localStorage.setItem("chronoline-skin",id)}catch(e){}
+  if(state.skin!==id){state.skin=id;persist()}
+}
+function openThemes(){
+  const box=el("div",{class:"modal",style:"max-width:600px"});
+  const grid=el("div",{class:"skins"});
+  const draw=()=>{
+    grid.replaceChildren();
+    const opts=[{id:"auto",name:"Automatic",note:"Follows your device's light or dark mode",c:null},...SKINS];
+    for(const k of opts){
+      const sw=k.c?el("span",{class:"skinprev",style:"background:"+k.c[0]},
+          el("span",{style:"background:"+k.c[1]},el("i",{style:"background:"+k.c[2]}),el("i",{style:"background:"+k.c[3]+";width:40%"})))
+        :el("span",{class:"skinprev auto"},el("span",{style:"background:#ffffff"},el("i",{style:"background:#18202c"}),el("i",{style:"background:#2747c9;width:40%"})),
+          el("span",{style:"background:#181e28"},el("i",{style:"background:#e6ebf3"}),el("i",{style:"background:#8ea4ff;width:40%"})));
+      grid.append(el("button",{type:"button",class:"skin","aria-pressed":String(currentSkin()===k.id),onclick:()=>{setSkin(k.id);draw();render()}},
+        sw,el("span",{class:"skinname"},k.name)));
+    }
+  };
+  draw();
+  box.append(el("h2",null,"Theme"),grid,
+    el("div",{class:"modal-actions"},el("button",{class:"btn primary",type:"button",onclick:closeModal},"Done")));
+  showModal(box);
+}
+
+/* ---------- import / export ---------- */
+const MAX_BYTES=900000; // stays under the 1 MB limit set in the database
+function openShare(tab){
+  tab=tab||(state.events.length?"export":"import");
+  const box=el("div",{class:"modal share"});
+  const tabs=el("div",{class:"tabs",role:"tablist"},
+    el("a",{href:"#",role:"tab","aria-current":tab==="export"?"page":null,onclick:ev=>{ev.preventDefault();openShare("export")}},"Export"),
+    el("a",{href:"#",role:"tab","aria-current":tab==="import"?"page":null,onclick:ev=>{ev.preventDefault();openShare("import")}},"Import"));
+  box.append(el("div",{class:"sharehead"},el("h2",null,tab==="export"?"Export your timeline":"Import a timeline"),tabs));
+  (tab==="export"?exportPane:importPane)(box);
+  showModal(box);
+}
+
+function exportPane(box){
+  if(!state.events.length){box.append(el("p",{class:"muted",style:"margin:0"},"There's nothing to export yet. Add some events first."),closeRow());return}
+  const counts={};for(const e of state.events){const k=e.cat||"_none";counts[k]=(counts[k]||0)+1}
+  const cats=[...state.categories.filter(c=>counts[c.id])];if(counts._none)cats.push({id:"_none",name:"No category",color:"#6b7385"});
+  const pick=new Set(cats.map(c=>c.id));
+  const list=el("div",{class:"checks"});
+  const btn=el("button",{class:"btn primary",type:"button"});
+  const msg=el("p",{class:"muted",style:"margin:0",hidden:true});
+  const upd=()=>{const n=state.events.filter(e=>pick.has(e.cat||"_none")).length;btn.textContent="Save file · "+n+(n===1?" event":" events");btn.disabled=!n};
+  for(const c of cats){
+    const cb=el("input",{type:"checkbox",checked:true,onchange:ev=>{ev.target.checked?pick.add(c.id):pick.delete(c.id);upd()}});
+    list.append(el("label",{class:"toggle"},cb,el("span",{class:"sw",style:"background:"+c.color}),c.name,el("span",{class:"mono muted",style:"font-size:.8rem"},counts[c.id])));
+  }
+  btn.onclick=async()=>{
+    const evs=state.events.filter(e=>pick.has(e.cat||"_none"));
+    const usedCats=state.categories.filter(c=>evs.some(e=>e.cat===c.id));
+    const data={app:"chronoline",version:1,exportedAt:new Date().toISOString().slice(0,10),
+      categories:usedCats.map(({id,name,color})=>({id,name,color})),
+      events:evs.map(({id,title,y,m,d,ey,em,ed,key,cat,note})=>({id,title,y,m:m||null,d:d||null,ey:ey??null,em:em||null,ed:ed||null,key:!!key,cat,note:note||""}))};
+    const text=JSON.stringify(data,null,1);
+    const name="chronoline-"+(usedCats.length===1?usedCats[0].name.replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-").toLowerCase()+"-":"")+data.exportedAt+".json";
+    let dl=null;try{dl=await claude.use("downloads")}catch(e){}
+    if(dl){
+      try{await dl.save({filename:name,data:text});msg.textContent="Saved "+name+". Send it to a friend, and they can import it with Import / Export → Import.";msg.hidden=false;return}
+      catch(x){if(x&&x.code==="declined"){return}}
+    }
+    showCopyFallback(box,text);
+  };
+  upd();
+  box.append(el("p",{style:"margin:0"},"Choose what to include. Your friend can then import the file into their own timeline."),list,msg,
+    el("div",{class:"modal-actions"},el("button",{class:"btn",type:"button",onclick:closeModal},"Close"),btn));
+}
+function showCopyFallback(box,text){
+  const ta=el("textarea",{readonly:true,class:"mono",style:"min-height:160px;font-size:.75rem"},text);
+  const cp=el("button",{class:"btn small",type:"button",onclick:async()=>{
+    try{await navigator.clipboard.writeText(text);cp.textContent="Copied"}catch(e){ta.focus();ta.select();cp.textContent="Press Ctrl/Cmd+C to copy"}
+  }},"Copy");
+  box.replaceChildren(el("h2",null,"Copy your export"),
+    el("p",{style:"margin:0"},"Saving files isn't available here, so copy this text and send it to your friend. They can paste it into Import."),
+    ta,el("div",{class:"modal-actions"},cp,el("button",{class:"btn",type:"button",onclick:closeModal},"Done")));
+}
+function closeRow(){return el("div",{class:"modal-actions"},el("button",{class:"btn",type:"button",onclick:closeModal},"Close"))}
+
+function parseImport(text){
+  let d;try{d=JSON.parse(text)}catch(e){throw new Error("This isn't a Chronoline export file.")}
+  if(!d||!Array.isArray(d.events))throw new Error("This isn't a Chronoline export file.");
+  const int=v=>Number.isInteger(v)?v:null;
+  const okColor=c=>typeof c==="string"&&/^#[0-9a-f]{6}$/i.test(c)?c:null;
+  const cats=(Array.isArray(d.categories)?d.categories:[]).filter(c=>c&&typeof c.name==="string"&&c.name.trim())
+    .map(c=>({id:String(c.id),name:c.name.trim().slice(0,60),color:okColor(c.color)}));
+  const evs=[];
+  for(const e of d.events){
+    if(!e||typeof e.title!=="string"||!e.title.trim()||int(e.y)==null)continue;
+    const m=int(e.m)>=1&&int(e.m)<=12?e.m:null;
+    const dd=m&&int(e.d)>=1&&int(e.d)<=(m===2?29:MDAYS[m-1])?e.d:null;
+    let ey=int(e.ey),em=null,ed=null;
+    if(ey!=null){em=int(e.em)>=1&&int(e.em)<=12?e.em:null;ed=em&&int(e.ed)>=1&&int(e.ed)<=(em===2?29:MDAYS[em-1])?e.ed:null;
+      if(tOf(ey,em,ed)<tOf(e.y,m,dd)){ey=null;em=null;ed=null}}
+    evs.push({title:e.title.trim().slice(0,120),y:e.y,m,d:dd,ey,em,ed,key:!!e.key,cat:e.cat!=null?String(e.cat):"",note:typeof e.note==="string"&&e.note!=="null"?e.note.slice(0,5000):""});
+  }
+  if(!evs.length)throw new Error("This file has no events in it.");
+  return{cats,evs};
+}
+
+function importPane(box){
+  let parsed=null;
+  const err=el("p",{class:"err",hidden:true});
+  const info=el("div",{class:"notice",hidden:true});
+  const file=el("input",{type:"file",id:"impFile",accept:".json,application/json,text/plain"});
+  const paste=el("textarea",{id:"impPaste",class:"mono",placeholder:"…or paste the exported text here",style:"font-size:.78rem;min-height:70px"});
+  let how="merge";
+  const sepName=el("input",{type:"text",id:"impName",placeholder:"e.g. From Alex",value:"From a friend"});
+  const sepWrap=el("div",{class:"field",hidden:true},el("label",{for:"impName"},"Name for the new category"),sepName);
+  const opt=(val,title,sub)=>el("label",null,el("input",{type:"radio",name:"imphow",value:val,checked:how===val,onchange:()=>{how=val;sepWrap.hidden=how!=="separate"}}),el("span",null,el("strong",null,title),el("small",null,sub)));
+  const go=el("button",{class:"btn primary",type:"button",disabled:true},"Import");
+  const load=text=>{
+    err.hidden=true;parsed=null;go.disabled=true;info.hidden=true;
+    if(!text.trim())return;
+    try{parsed=parseImport(text)}catch(x){err.textContent=x.message;err.hidden=false;return}
+    const names=parsed.cats.map(c=>c.name);
+    info.textContent=parsed.evs.length+(parsed.evs.length===1?" event":" events")+(names.length?" in "+names.join(", "):"")+".";
+    info.hidden=false;go.disabled=false;
+  };
+  file.addEventListener("change",()=>{const f=file.files&&file.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{paste.value="";load(String(r.result))};r.onerror=()=>{err.textContent="Couldn't read that file.";err.hidden=false};r.readAsText(f)});
+  let pt;paste.addEventListener("input",()=>{clearTimeout(pt);pt=setTimeout(()=>{file.value="";load(paste.value)},250)});
+  go.onclick=()=>{
+    if(!parsed)return;
+    const r=applyImport(parsed,how,sepName.value.trim()||"From a friend");
+    if(r.err){err.textContent=r.err;err.hidden=false;return}
+    box.replaceChildren(el("h2",null,"Imported"),
+      el("p",{style:"margin:0"},"Added "+r.added+(r.added===1?" event":" events")+(r.skipped?", skipped "+r.skipped+" you already had":"")+(r.newCats?", "+r.newCats+(r.newCats===1?" new category":" new categories"):"")+"."),
+      el("div",{class:"modal-actions"},el("button",{class:"btn primary",type:"button",onclick:closeModal},"Done")));
+  };
+  box.append(
+    el("div",{class:"field"},el("label",{for:"impFile"},"Choose an export file"),file),paste,info,
+    el("fieldset",{class:"bare"},el("legend",{class:"lab"},"How to add it"),el("div",{class:"choice"},
+      opt("merge","Merge into my timeline","Matching category names are combined. Events you already have are skipped."),
+      opt("separate","Keep it separate","Everything goes into one new category you can filter or delete later."))),
+    sepWrap,err,el("div",{class:"modal-actions"},el("button",{class:"btn",type:"button",onclick:closeModal},"Cancel"),go));
+}
+
+function applyImport({cats,evs},how,sepName){
+  const next=JSON.parse(JSON.stringify(state));
+  const sig=e=>[e.title.toLowerCase(),e.y,e.m||0,e.d||0,e.ey??"",e.em||0,e.ed||0].join("|");
+  let newCats=0;const map={};
+  const findOrMake=(name,color)=>{
+    let c=next.categories.find(x=>x.name.trim().toLowerCase()===name.trim().toLowerCase());
+    if(!c){c={id:uid(),name,color:color||PALETTE[next.categories.length%PALETTE.length]};next.categories.push(c);newCats++}
+    return c.id;
+  };
+  if(how==="separate"){const id=findOrMake(sepName,null);for(const c of cats)map[c.id]=id;map.__all=id}
+  else for(const c of cats)map[c.id]=findOrMake(c.name,c.color);
+  let added=0,skipped=0;
+  for(const e of evs){
+    const cat=how==="separate"?map.__all:(map[e.cat]||"");
+    const have=new Set(next.events.filter(x=>(x.cat||"")===cat).map(sig));
+    if(have.has(sig(e))){skipped++;continue}
+    next.events.push({...e,id:uid(),cat});added++;
+  }
+  if(JSON.stringify(next).length>MAX_BYTES)return{err:"That's more than your timeline can hold. Try exporting fewer categories, or delete some events first."};
+  state=next;active.clear();fitAll();persist();render();
+  return{added,skipped,newCats};
+}
+
+/* ---------- first-visit tour ---------- */
+const TOUR=[
+  {t:"Welcome to Chronoline",b:"Build your own timeline as you learn history, and see how events fit together. Here's a quick tour."},
+  {sel:"#btnAdd",t:"Add events",b:"Add anything you learn. Type the date straight through: year, then month, then day, and the cursor jumps for you. Press A or B in the year box to switch between AD and BC. Month and day are optional."},
+  {sel:"#btnAdd",t:"The ★ star",b:"In the Add event box, tap ☆ next to the name to make it a key event. Key events always keep their name visible on the timeline, and you can study only key events."},
+  {sel:"#btnCats",t:"Categories",b:"Group events by country or theme, like History of Italy. Each category gets its own colour."},
+  {sel:"#filters",t:"Filter",b:"Click a category to see only that one, or Shift-click to combine several. All categories shows everything together."},
+  {sel:".tl",t:"The timeline",b:"Single events are marks on the line; things that lasted a while are blocks below it, stacked when they overlap. Drag to move, scroll or pinch to zoom. A numbered bubble means several events are crowded together: click it to zoom in."},
+  {sel:"#detail",t:"Click an event",b:"Clicking an event lets you edit it, and shows what came before and after, and what was happening elsewhere at the same time."},
+  {sel:"#tabStudy",t:"Study mode",b:"Practise with flashcards. Pick categories or a time frame, say the answer out loud, then flip the card. Tap again to see your notes."},
+  {sel:"#btnShare",t:"Swap with friends",b:"Export your timeline, or just some categories, as a file and send it to a friend. They can import it into their own timeline, and you can import theirs."},
+  {sel:"#btnTheme",t:"Make it yours",b:"Change the colours of the whole page: pick from light, dark and coloured themes. Your choice is remembered."},
+  {sel:"#btnHelp",t:"That's it",b:"You can replay this tour any time from this button."}
+];
+let tourStep=-1,tourChecked=false;
+const tourOpen=()=>tourStep>=0;
+function maybeTour(){
+  if(tourChecked)return;tourChecked=true;
+  let seen=false;try{seen=localStorage.getItem("chronoline-tour")==="1"}catch(e){}
+  if(!state.tourDone&&!seen)startTour();
+}
+function startTour(){if(location.hash==="#study")location.hash="#timeline";closeModal();hidePop();tourStep=0;drawTour()}
+function endTour(){
+  tourStep=-1;const o=$("#tour");if(o)o.remove();
+  try{localStorage.setItem("chronoline-tour","1")}catch(e){}
+  if(!state.tourDone){state.tourDone=true;persist()}
+}
+function drawTour(){
+  const old=$("#tour");if(old)old.remove();
+  const st=TOUR[tourStep];const target=st.sel&&document.querySelector(st.sel);
+  const wrap=el("div",{id:"tour",class:"tour"});
+  const spot=el("div",{class:"spot"+(target?"":" off")});
+  const last=tourStep===TOUR.length-1;
+  const card=el("div",{class:"tcard",role:"dialog","aria-label":st.t},
+    el("div",{class:"tstep mono"},(tourStep+1)+" / "+TOUR.length),
+    el("h2",null,st.t),el("p",null,st.b),
+    el("div",{class:"row"},
+      !last?el("button",{class:"btn small",style:"margin-right:auto",onclick:endTour},"Skip tour"):el("span",{style:"margin-right:auto"}),
+      tourStep>0?el("button",{class:"btn small",onclick:()=>{tourStep--;drawTour()}},"Back"):null,
+      el("button",{class:"btn small primary",onclick:()=>{if(last)endTour();else{tourStep++;drawTour()}}},last?"Start using Chronoline":"Next")));
+  wrap.append(spot,card);document.body.append(wrap);
+  const place=()=>{
+    const vw=innerWidth,vh=innerHeight,cw=card.offsetWidth,ch=card.offsetHeight;
+    if(!target){card.style.left=Math.max(12,(vw-cw)/2)+"px";card.style.top=Math.max(12,(vh-ch)/2.5)+"px";return}
+    const r=target.getBoundingClientRect(),pad=6;
+    spot.style.cssText="left:"+(r.left-pad)+"px;top:"+(r.top-pad)+"px;width:"+(r.width+pad*2)+"px;height:"+(Math.min(r.height,vh*.7)+pad*2)+"px";
+    let top=r.bottom+14;if(top+ch>vh-12)top=r.top-ch-14;if(top<12)top=Math.max(12,vh-ch-12);
+    card.style.left=Math.min(Math.max(12,r.left),vw-cw-12)+"px";card.style.top=top+"px";
+  };
+  if(target)target.scrollIntoView({block:"nearest"});
+  place();requestAnimationFrame(place);
+  card.querySelector(".btn.primary").focus({preventScroll:true});
+}
+window.addEventListener("resize",()=>{if(tourOpen())drawTour()});
+$("#btnHelp").onclick=startTour;
+$("#btnShare").onclick=()=>openShare();
+$("#btnTheme").onclick=openThemes;
+
+/* ---------- study mode ---------- */
+let mode="timeline";
+const study={keyOnly:false,phase:"setup",cats:new Set(),from:{y:"",era:"AD"},to:{y:"",era:"AD"},dir:"name",shuffle:true,deck:[],i:0,face:0,results:{}};
+
+function setMode(m){
+  mode=m;
+  $("#viewTimeline").hidden=m!=="timeline";$("#viewStudy").hidden=m!=="study";
+  $("#tabTimeline").toggleAttribute("aria-current",m==="timeline");$("#tabStudy").toggleAttribute("aria-current",m==="study");
+  if(m==="timeline"){$("#tabTimeline").setAttribute("aria-current","page")}else{$("#tabStudy").setAttribute("aria-current","page")}
+  render();
+}
+function route(){setMode(location.hash==="#study"?"study":"timeline")}
+window.addEventListener("hashchange",route);
+
+function frameBound(b,isEnd){
+  const y=parseInt(b.y,10);if(!Number.isFinite(y)||y<1)return null;
+  const a=toAstro(y,b.era);return isEnd?a+1:a;
+}
+function studyPool(){
+  const lo=frameBound(study.from,false),hi=frameBound(study.to,true);
+  return state.events.filter(e=>{
+    if(study.keyOnly&&!e.key)return false;
+    if(study.cats.size&&!study.cats.has(e.cat||"_none"))return false;
+    const s=evStart(e),en=evEnd(e)??s;
+    if(lo!=null&&en<lo)return false;
+    if(hi!=null&&s>=hi)return false;
+    return true;
+  });
+}
+function startDeck(events){
+  let d=events.map(e=>e.id);
+  if(study.shuffle){for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]}}
+  else d.sort((a,b)=>evStart(state.events.find(e=>e.id===a))-evStart(state.events.find(e=>e.id===b)));
+  study.deck=d;study.sides={};study.i=0;study.face=0;study.results={};study.phase="cards";renderStudy();
+}
+
+function renderStudy(){
+  const root=$("#viewStudy");root.replaceChildren();
+  if(!state.events.length){
+    root.append(el("div",{class:"result"},el("h2",null,"Nothing to study yet"),
+      el("p",{class:"muted",style:"margin:0;max-width:44ch"},"Add some events to your timeline first. Every event you add becomes a flashcard here."),
+      el("a",{class:"btn primary",href:"#timeline",style:"text-decoration:none"},"Go to the timeline")));
+    return;
+  }
+  if(study.phase==="setup")return renderSetup(root);
+  if(study.phase==="cards")return renderCard(root);
+  return renderResult(root);
+}
+
+function renderSetup(root){
+  const box=el("form",{class:"setup",onsubmit:ev=>{ev.preventDefault();const p=studyPool();if(p.length)startDeck(p)}});
+  box.append(el("div",null,el("h2",{style:"font-size:1.5rem"},"Study with flashcards"),
+    el("p",{class:"muted",style:"margin:4px 0 0"},"Choose what to practise. Say the answer out loud, then flip the card to check.")));
+
+  // categories
+  const counts={};for(const e of state.events){const k=e.cat||"_none";counts[k]=(counts[k]||0)+1}
+  const chips=el("div",{class:"filters"});
+  chips.append(el("button",{type:"button",class:"chip","aria-pressed":String(study.cats.size===0),onclick:()=>{study.cats.clear();renderStudy()}},"Everything",el("span",{class:"n"},state.events.length)));
+  const cats=[...state.categories];if(counts._none)cats.push({id:"_none",name:"No category",color:"#6b7385"});
+  for(const c of cats)chips.append(el("button",{type:"button",class:"chip","aria-pressed":String(study.cats.has(c.id)),onclick:()=>{study.cats.has(c.id)?study.cats.delete(c.id):study.cats.add(c.id);renderStudy()}},
+    el("span",{class:"sw",style:"background:"+c.color}),c.name,el("span",{class:"n"},counts[c.id]||0)));
+  box.append(el("fieldset",null,el("legend",null,"Categories"),chips,
+    cats.length>1?el("span",{class:"muted",style:"font-size:.82rem"},"Pick one or several."):null));
+
+  // time frame
+  const bound=(key,label)=>{
+    const b=study[key];
+    const yIn=el("input",{type:"number",id:"sf"+key,min:"1",step:"1",placeholder:"Any year",value:b.y,inputmode:"numeric","aria-label":label+" year"});
+    yIn.addEventListener("change",()=>{b.y=yIn.value;renderStudy();setTimeout(()=>{const n=$("#sf"+key);n&&n.focus()})});
+    const era=el("select",{id:"sf"+key+"era","aria-label":label+" era",onchange:ev=>{b.era=ev.target.value;renderStudy()}},
+      el("option",{value:"AD",selected:b.era==="AD"},"AD"),el("option",{value:"BC",selected:b.era==="BC"},"BC"));
+    return [el("span",{class:"lab"},label),yIn,era];
+  };
+  const fb=frameBound(study.from,false),tb=frameBound(study.to,true);
+  box.append(el("fieldset",null,el("legend",null,"Time frame"),
+    el("div",{class:"frame"},...bound("from","From"),...bound("to","To")),
+    fb!=null&&tb!=null&&tb<=fb?el("p",{class:"err"},"The “To” year is before the “From” year."):
+    el("span",{class:"muted",style:"font-size:.82rem"},"Leave blank to include all dates. Periods that overlap the frame are included.")));
+
+  // direction
+  const opt=(val,title,sub)=>el("label",null,el("input",{type:"radio",name:"sdir",value:val,checked:study.dir===val,onchange:()=>{study.dir=val}}),
+    el("span",null,el("strong",null,title),el("small",null,sub)));
+  box.append(el("fieldset",null,el("legend",null,"Card front"),el("div",{class:"choice"},
+    opt("name","Show the event, I say the date","e.g. “Battle of Grunwald” → 15 Jul 1410"),
+    opt("date","Show the date, I say the event","e.g. 15 Jul 1410 → “Battle of Grunwald”"),
+    opt("mixed","Mix both","Each card picks a side at random"))));
+
+  const pool=studyPool();
+  box.append(el("div",{class:"startrow"},
+    el("button",{type:"submit",class:"btn primary",disabled:!pool.length},"Start · "+pool.length+(pool.length===1?" card":" cards")),
+    el("label",{class:"toggle"},el("input",{type:"checkbox",id:"sshuf",checked:study.shuffle,onchange:ev=>{study.shuffle=ev.target.checked}}),"Shuffle"),
+    el("label",{class:"toggle"},el("input",{type:"checkbox",id:"skey",checked:study.keyOnly,onchange:ev=>{study.keyOnly=ev.target.checked;renderStudy()}}),"★ Key events only"),
+    !pool.length?el("span",{class:"muted"},"No events match these choices."):null));
+  root.append(box);
+}
+
+function cardSide(id){
+  if(study.dir!=="mixed")return study.dir;
+  study.sides=study.sides||{};
+  if(!study.sides[id])study.sides[id]=Math.random()<.5?"name":"date";
+  return study.sides[id];
+}
+function miniLine(e){
+  const evs=study.deck.map(id=>state.events.find(x=>x.id===id)).filter(Boolean);
+  let lo=Math.min(...evs.map(evStart)),hi=Math.max(...evs.map(x=>evEnd(x)??evStart(x)));
+  const fl=frameBound(study.from,false),fh=frameBound(study.to,true);
+  if(fl!=null)lo=fl;if(fh!=null)hi=fh;
+  if(hi-lo<1){lo-=1;hi+=1}
+  const pct=t=>Math.min(100,Math.max(0,(t-lo)/(hi-lo)*100));
+  const c=colorOf(e);const end=evEnd(e);
+  return el("div",{class:"mini","aria-hidden":"true"},
+    el("div",{class:"ml"}),
+    end!=null?el("div",{class:"mb",style:"left:"+pct(evStart(e))+"%;width:"+Math.max(pct(end)-pct(evStart(e)),1)+"%;background:"+c})
+             :el("div",{class:"mp",style:"left:"+pct(evStart(e))+"%;background:"+c}),
+    el("span",{class:"me",style:"left:0"},fmtYear(Math.floor(lo))),
+    el("span",{class:"me",style:"right:0"},fmtYear(fh!=null?fh-1:Math.floor(hi))));
+}
+
+function renderCard(root){
+  // drop cards whose event was deleted meanwhile
+  study.deck=study.deck.filter(id=>state.events.some(e=>e.id===id));
+  if(!study.deck.length){study.phase="setup";return renderSetup(root)}
+  if(study.i>=study.deck.length){study.phase="done";return renderResult(root)}
+  const e=state.events.find(x=>x.id===study.deck[study.i]);
+  const side=cardSide(e.id);const c=catOf(e.cat);
+  const hasNotes=!!(e.note&&e.note.trim());
+  const total=study.deck.length;
+
+  root.append(el("div",{class:"progress"},
+    el("span",{class:"mono muted",style:"font-size:.85rem"},"Card "+(study.i+1)+" of "+total),
+    el("div",{class:"meter"},el("i",{style:"width:"+(study.i/total*100)+"%"})),
+    el("button",{class:"btn small",onclick:()=>{study.phase="done";renderStudy()}},"End session")));
+
+  const card=el("div",{class:"card",id:"card",role:"button",tabindex:"0","aria-label":"Flashcard. Press space to flip."});
+  card.addEventListener("click",ev=>{if(ev.target.closest("button"))return;flipCard()});
+  card.append(el("span",{class:"ccat"},el("span",{class:"sw",style:"background:"+colorOf(e)}),c?c.name:"No category"));
+  card.append(el("span",{class:"face"},study.face===0?"Front":study.face===1?"Answer":"Notes"));
+  const askName=side==="name";
+  if(study.face===0){
+    card.append(el("div",{class:"ask"},askName?"When did this happen?":"What happened?"),
+      el("div",{class:"big"+(askName?"":" isdate")},askName?e.title:fmtWhen(e)),
+      el("div",{class:"tap"},"Say your answer out loud, then click to flip"));
+  }else{
+    add(card,el("div",{class:"q"},askName?e.title:fmtWhen(e)),
+      el("div",{class:"big"+(askName?" isdate":"")},askName?fmtWhen(e):e.title),
+      e.ey!=null?el("div",{class:"muted"},"Lasted "+fmtGap(evEnd(e)-evStart(e))):null,
+      miniLine(e));
+    if(study.face===2)card.append(el("div",{class:"notes"},e.note));
+    if(study.face===1)card.append(hasNotes?el("div",{class:"tap"},"Click again to see your notes")
+      :el("button",{class:"btn small",onclick:()=>openEvent(e)},"Add notes to this event"));
+  }
+  root.append(card);
+
+  if(study.face>0){
+    root.append(el("div",{class:"grade"},
+      el("button",{class:"btn",onclick:()=>grade(false)},"Still learning"),
+      el("button",{class:"btn good",onclick:()=>grade(true)},"I knew it")));
+  }
+  root.append(el("div",{class:"keys"},el("kbd",null,"Space")," flip · ",el("kbd",null,"1")," still learning · ",el("kbd",null,"2")," knew it · ",el("kbd",null,"←")," previous card"));
+  card.focus({preventScroll:true});
+}
+
+function flipCard(){
+  const e=state.events.find(x=>x.id===study.deck[study.i]);if(!e)return;
+  const max=e.note&&e.note.trim()?2:1;
+  if(study.face>=max)return;
+  const card=$("#card");
+  const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(!card||reduce){study.face++;renderStudy();return}
+  card.classList.add("turn");
+  setTimeout(()=>{study.face++;renderStudy();const n=$("#card");if(n){n.style.transition="none";n.classList.add("turn");n.offsetWidth;n.style.transition="";n.classList.remove("turn")}},160);
+}
+function grade(knew){
+  study.results[study.deck[study.i]]=knew;
+  study.i++;study.face=0;renderStudy();
+}
+
+function renderResult(root){
+  const ids=study.deck.filter(id=>id in study.results);
+  const known=ids.filter(id=>study.results[id]).length;
+  const missed=ids.filter(id=>!study.results[id]).map(id=>state.events.find(e=>e.id===id)).filter(Boolean);
+  const box=el("div",{class:"result"});
+  if(!ids.length){
+    box.append(el("h2",null,"Session ended"),el("p",{class:"muted",style:"margin:0"},"You didn't grade any cards this time."));
+  }else{
+    box.append(el("div",{class:"score mono"},known+" / "+ids.length),
+      el("p",{style:"margin:0"},known===ids.length?"You knew every one. Nicely done.":"You knew "+known+" of "+ids.length+". "+missed.length+" still to learn."));
+    if(missed.length){
+      const ul=el("ul");
+      for(const e of missed.sort((a,b)=>evStart(a)-evStart(b)))ul.append(el("li",null,el("span",{class:"sw",style:"background:"+colorOf(e)+";margin-right:8px"}),e.title+" ",el("span",{class:"mono muted",style:"font-size:.85rem"},fmtWhen(e))));
+      box.append(ul);
+    }
+  }
+  box.append(el("div",{class:"row",style:"justify-content:center"},
+    missed.length?el("button",{class:"btn primary",onclick:()=>startDeck(missed)},"Practise the "+missed.length+" I didn't know"):null,
+    el("button",{class:"btn"+(missed.length?"":" primary"),onclick:()=>startDeck(studyPool())},"Go again"),
+    el("button",{class:"btn",onclick:()=>{study.phase="setup";renderStudy()}},"Change what I study")));
+  root.append(box);
+}
+
+/* ---------- modals ---------- */
+function closeModal(){$("#modalRoot").replaceChildren()}
+function showModal(content){
+  const scrim=el("div",{class:"scrim",onclick:ev=>{if(ev.target===scrim)closeModal()}},content);
+  $("#modalRoot").replaceChildren(scrim);
+  const f=content.querySelector("input,select,textarea,button");if(f)f.focus();
+}
+function dateInputs(prefix,y,m,d,label,nextFocus){
+  // AD/BC → year → month → day, typed straight through.
+  // Year: 4 digits, or / . - space, jumps to month (A/B keys set the era).
+  // Month: 2 digits, or a single 2–9, jumps to day. Day: 2 digits, or a single 4–9, jumps on.
+  const f=y!=null?fromAstro(y):{y:"",era:"AD"};
+  const eraVal=el("input",{type:"hidden",id:prefix+"era",value:f.era});
+  const num=(id,ph,val,max,aria)=>el("input",{type:"text",id,placeholder:ph,value:val??"",maxlength:String(max),inputmode:"numeric",autocomplete:"off","aria-label":aria});
+  const yIn=num(prefix+"y","Year",f.y,5,label+" year");
+  const mIn=num(prefix+"m","MM",m,2,label+" month (1–12)");
+  const dIn=num(prefix+"d","DD",d,2,label+" day");
+  const ad=el("button",{type:"button",tabindex:"-1"},"AD"),bc=el("button",{type:"button",tabindex:"-1"},"BC");
+  const setEra=v=>{eraVal.value=v;ad.setAttribute("aria-pressed",String(v==="AD"));bc.setAttribute("aria-pressed",String(v==="BC"))};
+  ad.onclick=()=>{setEra("AD");yIn.focus()};bc.onclick=()=>{setEra("BC");yIn.focus()};setEra(f.era);
+  const go=n=>{if(!n)return;n.focus();if(n.select)n.select()};
+  const digits=inp=>{const v=inp.value.replace(/\D/g,"");if(v!==inp.value)inp.value=v;return v};
+  const SEP=["/",".","-"," ","Enter"];
+  yIn.addEventListener("keydown",ev=>{
+    const k=ev.key.toLowerCase();
+    if(k==="b"||k==="a"){ev.preventDefault();setEra(k==="b"?"BC":"AD");return}
+    if(SEP.includes(ev.key)&&ev.key!=="Enter"){ev.preventDefault();go(mIn)}
+  });
+  yIn.addEventListener("input",()=>{if(digits(yIn).length===4)go(mIn)});
+  mIn.addEventListener("keydown",ev=>{
+    if(ev.key==="Backspace"&&!mIn.value){ev.preventDefault();go(yIn)}
+    else if(SEP.includes(ev.key)&&ev.key!=="Enter"){ev.preventDefault();go(dIn)}
+  });
+  mIn.addEventListener("input",()=>{const v=digits(mIn);if(v.length===2||(v.length===1&&+v>=2))go(dIn)});
+  dIn.addEventListener("keydown",ev=>{
+    if(ev.key==="Backspace"&&!dIn.value){ev.preventDefault();go(mIn)}
+    else if(SEP.includes(ev.key)&&ev.key!=="Enter"){ev.preventDefault();go(nextFocus&&nextFocus())}
+  });
+  dIn.addEventListener("input",()=>{const v=digits(dIn);if(v.length===2||(v.length===1&&+v>=4))go(nextFocus&&nextFocus())});
+  const head=el("div",{class:"date datehead","aria-hidden":"true"},
+    el("span",{class:"c1"}),el("span",null,"YYYY"),
+    el("div",{class:"mdd"},el("span",null,"MM"),el("span",{class:"slash",style:"visibility:hidden"},"/"),el("span",null,"DD")));
+  // only needed once the boxes are filled in and their placeholders are hidden
+  return el("div",{class:"datewrap"},y!=null?head:null,el("div",{class:"date"},
+    el("div",{class:"era",role:"group","aria-label":label+" era"},ad,bc),yIn,eraVal,
+    el("div",{class:"mdd"},mIn,el("span",{class:"slash"},"/"),dIn)));
+}
+function catSelect(cur){
+  return el("select",{id:"fCat"},
+    state.categories.map(c=>el("option",{value:c.id,selected:c.id===cur},c.name)),
+    el("option",{value:"",selected:!cur&&state.categories.length===0||cur===""},"No category"),
+    el("option",{value:"__new"},"+ New category…"));
+}
+function openEvent(e){
+  const isNew=!e;e=e||{title:"",y:null,cat:active.size===1?[...active][0]:(state.categories[0]?.id||"")};
+  const starBtn=el("button",{type:"button",id:"fKey",class:"starbtn","aria-label":"Key event","aria-pressed":String(!!e.key),title:"Key event"},e.key?"★":"☆");
+  starBtn.onclick=()=>{const on=starBtn.getAttribute("aria-pressed")!=="true";starBtn.setAttribute("aria-pressed",String(on));starBtn.textContent=on?"★":"☆"};
+  const period=el("input",{type:"checkbox",id:"fPeriod",checked:e.ey!=null});
+  const endWrap=el("div",{class:"field",hidden:e.ey==null},el("span",{class:"lab"},"Ended"),dateInputs("fE",e.ey,e.em,e.ed,"End",()=>$("#fCat")));
+  period.onchange=()=>{endWrap.hidden=!period.checked};
+  const newCat=el("div",{class:"field",hidden:true},el("label",{for:"fNewCat"},"New category name"),el("input",{type:"text",id:"fNewCat",placeholder:"e.g. History of Italy"}));
+  const sel=catSelect(e.cat==="_none"?"":e.cat);sel.onchange=()=>{newCat.hidden=sel.value!=="__new";if(!newCat.hidden)newCat.querySelector("input").focus()};
+  const err=el("p",{class:"err",hidden:true});
+  const form=el("form",{class:"modal",onsubmit:ev=>{
+    ev.preventDefault();
+    try{saveEvent()}catch(x){console.error(x);showErr("Something went wrong while saving: "+(x&&x.message||x)+". Try again, or reload the page.")}
+  }});
+  function saveEvent(){
+    const title=$("#fTitle").value.trim();
+    const yv=parseInt($("#fSy").value,10);
+    if(!title){return showErr("Give the event a name.")}
+    if(!Number.isFinite(yv)||yv<1){return showErr("Enter the year as a whole number, then choose AD or BC.")}
+    const ys=toAstro(yv,$("#fSera").value);
+    const md=(mId,dId,which)=>{
+      const mt=$(mId).value.trim(),dt=$(dId).value.trim();
+      const mm=mt?parseInt(mt,10):null,dd=dt?parseInt(dt,10):null;
+      if(mt&&!(mm>=1&&mm<=12))return {err:"The "+which+" month must be a number from 1 to 12."};
+      if(dt&&!mm)return {err:"Add the "+which+" month before the day."};
+      if(dt&&!(dd>=1&&dd<=(mm===2?29:MDAYS[mm-1])))return {err:MONTHS[mm-1]+" doesn't have a day "+dt+"."};
+      return {m:mm,d:dd};
+    };
+    const sd=md("#fSm","#fSd","start");if(sd.err)return showErr(sd.err);
+    const ms=sd.m,ds=sd.d;
+    let ey=null,em=null,ed=null;
+    if(period.checked){
+      const ev2=parseInt($("#fEy").value,10);
+      if(!Number.isFinite(ev2)||ev2<1)return showErr("Enter the year it ended, or untick “This lasted a while”.");
+      ey=toAstro(ev2,$("#fEera").value);const ed2=md("#fEm","#fEd","end");if(ed2.err)return showErr(ed2.err);em=ed2.m;ed=ed2.d;
+      if(tOf(ey,em,ed)<tOf(ys,ms,ds))return showErr("The end date is before the start date.");
+    }
+    let cat=sel.value;
+    if(cat==="__new"){
+      const name=$("#fNewCat").value.trim();if(!name)return showErr("Name the new category.");
+      const c={id:uid(),name,color:PALETTE[state.categories.length%PALETTE.length]};state.categories.push(c);cat=c.id;
+    }
+    const rec={id:e.id||uid(),title,y:ys,m:ms,d:ds,ey,em,ed,key:$("#fKey").getAttribute("aria-pressed")==="true",cat:cat||"",note:$("#fNote").value.trim()};
+    if(isNew)state.events.push(rec);else Object.assign(state.events.find(x=>x.id===e.id),rec);
+    selected=rec.id;persist();closeModal();
+    if(isNew&&active.size&&!active.has(rec.cat||"_none"))active.clear();
+    if(state.events.length===1)fitAll();else centerOn(rec);
+    render();
+  }
+  add(form,
+    el("h2",null,isNew?"Add an event":"Edit event"),
+    el("div",{class:"field"},el("label",{for:"fTitle"},"What happened"),el("div",{class:"titlerow"},
+      el("input",{type:"text",id:"fTitle",value:e.title,placeholder:"e.g. Fall of Constantinople",maxlength:"120"}),
+      starBtn)),
+    el("div",{class:"field"},el("span",{class:"lab"},isNew?"When":"Started"),dateInputs("fS",e.y,e.m,e.d,"Start",()=>$("#fPeriod").checked?$("#fEy"):$("#fCat"))),
+    el("label",{class:"toggle"},period,"This lasted a while (a war, a reign, an era)"),
+    endWrap,
+    el("div",{class:"field"},el("label",{for:"fCat"},"Category"),sel),newCat,
+    el("div",{class:"field"},el("label",{for:"fNote"},"Notes (optional)"),el("textarea",{id:"fNote",placeholder:"Why it matters, who was involved…"},e.note||"")),
+    err,
+    el("div",{class:"modal-actions"},
+      !isNew?el("button",{type:"button",class:"btn danger",style:"margin-right:auto",onclick:function(){
+        if(this.dataset.armed){state.events=state.events.filter(x=>x.id!==e.id);selected=null;persist();closeModal();render()}
+        else{this.dataset.armed="1";this.textContent="Click again to delete"}
+      }},"Delete"):null,
+      el("button",{type:"button",class:"btn",onclick:closeModal},"Cancel"),
+      el("button",{type:"submit",class:"btn primary"},isNew?"Add to timeline":"Save")));
+  function showErr(t){err.textContent=t;err.hidden=false}
+  showModal(form);
+}
+
+function openCategories(){
+  const box=el("div",{class:"modal"});
+  function draw(){
+    box.replaceChildren(el("h2",null,"Categories"),el("p",{class:"muted",style:"margin:0"},"Use categories for countries, themes or courses. Each gets its own colour and its own row on the timeline."));
+    const list=el("div");
+    for(const c of state.categories){
+      const n=state.events.filter(e=>e.cat===c.id).length;
+      const del=el("button",{class:"btn small danger",type:"button",onclick:function(){
+        if(n&&!this.dataset.armed){this.dataset.armed="1";this.textContent="Delete "+n+" event"+(n>1?"s":"")+" too?";return}
+        state.categories=state.categories.filter(x=>x.id!==c.id);state.events=state.events.filter(e=>e.cat!==c.id);active.delete(c.id);
+        if(selected&&!state.events.some(e=>e.id===selected))selected=null;persist();draw();render();
+      }},"Delete");
+      list.append(el("div",{class:"catrow"},
+        el("input",{type:"color",value:c.color,"aria-label":"Colour for "+c.name,onchange:ev=>{c.color=ev.target.value;persist();render()}}),
+        el("input",{type:"text",value:c.name,"aria-label":"Name",onchange:ev=>{const v=ev.target.value.trim();if(v){c.name=v;persist();render()}}}),
+        el("span",{class:"mono muted",style:"font-size:.8rem"},n),del));
+    }
+    if(!state.categories.length)list.append(el("p",{class:"muted"},"No categories yet."));
+    box.append(list);
+    let pick=PALETTE[state.categories.length%PALETTE.length];
+    const sw=el("div",{class:"swatches"});
+    const drawSw=()=>{sw.replaceChildren(...PALETTE.map(p=>el("button",{type:"button",style:"background:"+p,"aria-label":"Colour "+p,"aria-pressed":String(p===pick),onclick:()=>{pick=p;drawSw()}})))};drawSw();
+    const name=el("input",{type:"text",id:"newCatName",placeholder:"New category, e.g. History of Italy"});
+    const add=el("form",{class:"field",onsubmit:ev=>{ev.preventDefault();const v=name.value.trim();if(!v)return;state.categories.push({id:uid(),name:v,color:pick});persist();draw();render();box.querySelector("#newCatName").focus()}},
+      el("span",{class:"lab"},"Add a category"),el("div",{class:"row",style:"flex-wrap:nowrap"},name,el("button",{class:"btn primary",type:"submit"},"Add")),sw);
+    box.append(add,el("div",{class:"modal-actions"},el("button",{class:"btn",type:"button",onclick:closeModal},"Done")));
+  }
+  draw();showModal(box);
+}
+
+function loadExamples(){
+  const it={id:uid(),name:"Italy",color:"#2f9e5b"},lt={id:uid(),name:"Lithuania",color:"#d98a1c"},wd={id:uid(),name:"Wider world",color:"#3a6fe0"};
+  const N="Example event. Edit or delete it any time.";
+  const E=(title,y,cat,o={})=>({id:uid(),title,y,m:o.m||null,d:o.d||null,ey:o.ey??null,em:o.em||null,ed:o.ed||null,cat:cat.id,note:N});
+  state.categories.push(it,lt,wd);
+  state.events.push(
+    E("Traditional founding of Rome",toAstro(753,"BC"),it),
+    E("Roman Republic founded",toAstro(509,"BC"),it),
+    E("Julius Caesar assassinated",toAstro(44,"BC"),it,{m:3,d:15}),
+    E("Fall of the Western Roman Empire",476,it),
+    E("Italian Renaissance",1400,it,{ey:1600}),
+    E("Kingdom of Italy proclaimed",1861,it,{m:3,d:17}),
+    E("Italy votes to become a republic",1946,it,{m:6,d:2}),
+    E("Lithuania first named in written records",1009,lt),
+    E("Mindaugas crowned King of Lithuania",1253,lt,{m:7,d:6}),
+    E("Battle of Grunwald",1410,lt,{m:7,d:15}),
+    E("Union of Lublin",1569,lt,{m:7,d:1}),
+    E("Act of Independence of Lithuania",1918,lt,{m:2,d:16}),
+    E("Restoration of independence",1990,lt,{m:3,d:11}),
+    E("Fall of Constantinople",1453,wd,{m:5,d:29}),
+    E("Columbus reaches the Americas",1492,wd,{m:10,d:12}),
+    E("Storming of the Bastille",1789,wd,{m:7,d:14}),
+    E("First World War",1914,wd,{m:7,d:28,ey:1918,em:11,ed:11}),
+    E("Second World War",1939,wd,{m:9,d:1,ey:1945,em:9,ed:2}));
+  persist();fitAll();render();
+}
+
+(window.authGate?window.authGate(boot):boot());
+try{document.fonts&&document.fonts.ready.then(()=>{widthCache.clear();if(mode==="timeline")drawTimeline()})}catch(e){}
+})();
+</script>
+
+</body>
+</html>
