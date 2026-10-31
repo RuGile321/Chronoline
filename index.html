@@ -688,6 +688,7 @@ function labelWidth(e){
 let remPx=16;
 function drawTimeline(){
   hidePop();
+  if(typeof parkGestureTargets==="function")parkGestureTargets();
   remPx=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
   const vp=$("#vp"),track=$("#track");
   const W=vp.clientWidth||800;const span=view.end-view.start;const ppy=W/span;
@@ -928,6 +929,16 @@ const vp=$("#vp");
 // the whole timeline box responds to dragging, scrolling and pinching, not just the inner area
 const tlBox=$(".tl");
 const pointers=new Map();let drag=null,pinch=null,moved=false;
+// Browsers send every event of one trackpad gesture to the element that was under the cursor
+// when it began. Redrawing replaces that element, so we park it here (still inside the
+// timeline box, so its events keep reaching our handlers) until the gesture is over.
+const gestureKeep=new Set();const gestureParking=document.createElement("div");gestureParking.hidden=true;tlBox.append(gestureParking);
+let gestureTimer=null;
+function holdGestureTarget(t){
+  if(t&&t.nodeType===1&&t!==tlBox&&$("#track").contains(t))gestureKeep.add(t);
+  clearTimeout(gestureTimer);gestureTimer=setTimeout(()=>{gestureKeep.clear();gestureParking.replaceChildren()},700);
+}
+function parkGestureTargets(){for(const n of gestureKeep)if(n.isConnected&&!gestureParking.contains(n))gestureParking.append(n)}
 const isControl=t=>!!(t.closest&&t.closest(".tl-bar button,.tl-bar input,.tl-bar label,.zoom"));
 tlBox.addEventListener("pointerdown",ev=>{
   if(pointers.size===0)moved=false;   // a fresh press: forget the last drag
@@ -958,6 +969,7 @@ window.addEventListener("pointerup",endPtr);window.addEventListener("pointercanc
 tlBox.addEventListener("click",ev=>{if(moved){ev.stopPropagation();ev.preventDefault();moved=false}},true);
 tlBox.addEventListener("wheel",ev=>{
   if(ev.target.closest&&ev.target.closest(".zoom"))return;
+  holdGestureTarget(ev.target);
   const rect=vp.getBoundingClientRect();const frac=Math.min(1,Math.max(0,(ev.clientX-rect.left)/rect.width));
   let dx=ev.deltaX,dy=ev.deltaY;
   if(ev.deltaMode===1){dx*=16;dy*=16}else if(ev.deltaMode===2){dx*=rect.width;dy*=rect.width}
@@ -972,9 +984,9 @@ tlBox.addEventListener("wheel",ev=>{
 },{passive:false});
 // Safari sends its own events for a trackpad pinch
 let gStart=null;
-tlBox.addEventListener("gesturestart",ev=>{ev.preventDefault();const r=vp.getBoundingClientRect();gStart={start:view.start,end:view.end,frac:Math.min(1,Math.max(0,((ev.clientX??r.left+r.width/2)-r.left)/r.width))}});
+tlBox.addEventListener("gesturestart",ev=>{ev.preventDefault();holdGestureTarget(ev.target);const r=vp.getBoundingClientRect();gStart={start:view.start,end:view.end,frac:Math.min(1,Math.max(0,((ev.clientX??r.left+r.width/2)-r.left)/r.width))}});
 tlBox.addEventListener("gesturechange",ev=>{
-  if(!gStart)return;ev.preventDefault();hidePop();
+  if(!gStart)return;ev.preventDefault();hidePop();holdGestureTarget(ev.target);
   const span0=gStart.end-gStart.start,at=gStart.start+span0*gStart.frac,ns=span0/(ev.scale||1);
   view={start:at-ns*gStart.frac,end:at-ns*gStart.frac+ns};clampView();scheduleDraw();
 });
