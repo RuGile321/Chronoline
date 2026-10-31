@@ -7,6 +7,6 @@
 //
 // Until these are filled in, the site still works: everyone's timeline is saved in their own browser.
 window.CHRONOLINE_CONFIG = {
-  supabaseUrl: "https://YOUR-PROJECT-ID.supabase.co",
-  supabaseAnonKey: "YOUR-ANON-KEY"
+  supabaseUrl: "https://hprudduepgoeotitcjtn.supabase.co",
+  supabaseAnonKey: "sb_publishable_VBwdgsX-ui0YS0Sy67aWkQ_okfeF7z9"
 };
