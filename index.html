@@ -101,14 +101,13 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
 .ev{position:absolute;height:22px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-left:3px solid var(--c);background:var(--surface);border-radius:4px;padding:0 7px 0 6px;white-space:nowrap;font-size:.84rem;color:var(--fg);z-index:3}
 .ev .tt,.blk .tt{display:inline-block;max-width:230px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 .blk>span{flex:none}
-.blk.shifted>span{transform:translateX(calc(-1 * var(--shift,0px)))}
-.blk.shifted>.tt{background:color-mix(in srgb,var(--surface) 80%,transparent);border-radius:3px;padding:0 3px}
+.blk>.tt{flex:0 1 auto;min-width:0;max-width:none}
 .ev .yr{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
 .ev:hover,.ev.sel{background:var(--fg);color:var(--bg);border-color:var(--fg);border-left-color:var(--c)}
 .ev:hover .yr,.ev.sel .yr{color:var(--bg)}
 .ev.sel{z-index:5}
 /* long events: blocks below the line, overlapping ones on separate rows */
-.blk{position:absolute;height:26px;display:flex;align-items:center;gap:6px;padding:0 6px;box-sizing:border-box;border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 22%,var(--surface));border-radius:3px;white-space:nowrap;font-size:.84rem;color:var(--fg);z-index:3;overflow:visible}
+.blk{position:absolute;height:26px;display:flex;align-items:center;gap:6px;padding:0 6px;box-sizing:border-box;border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 22%,var(--surface));border-radius:3px;white-space:nowrap;font-size:.84rem;color:var(--fg);z-index:3;overflow:hidden}
 .blk .yr{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
 .blk:hover,.blk.sel{background:color-mix(in srgb,var(--c) 45%,var(--surface))}
 .blk.sel{z-index:5;box-shadow:0 0 0 2px var(--fg)}
@@ -165,6 +164,8 @@ textarea{min-height:72px;resize:vertical}
 .mdd{display:flex;align-items:center;gap:4px;min-width:0}
 .mdd input{text-align:center;min-width:0}
 .mdd .slash{color:var(--muted);font-family:var(--f-mono)}
+.lasted{font-size:.8rem;color:var(--muted);min-height:1.1em}
+.lasted.warn{color:var(--danger)}
 .datewrap{display:flex;flex-direction:column;gap:3px}
 .datehead{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.06em;color:var(--muted)}
 .datehead .c1{width:52px;text-align:center}
@@ -715,7 +716,7 @@ function drawTimeline(){
     groups=ids.map(id=>({cat:id==="_none"?{name:"No category",color:"#6b7385"}:catOf(id),evs:evs.filter(e=>(e.cat||"_none")===id)}));
   }else groups=[{cat:null,evs}];
 
-  const LANE=28, ROW=32, YLAB=26, MAXL=4, MAXR=4, SMALL_BLOCK=48;
+  const LANE=28, ROW=32, YLAB=26, MAXL=4, MAXR=4, SMALL_BLOCK=80;
   // who gets label space first: the selected event, then key events, then by date
   const prio=(a,b)=>((b.id===selected)-(a.id===selected))||((!!b.key)-(!!a.key))||(evStart(a)-evStart(b));
   const fits=(lane,l,r)=>lane.every(([a,b])=>r<=a||l>=b);
@@ -741,13 +742,14 @@ function drawTimeline(){
     const rows=[],periods=[],over=[];
     for(const p of pers.sort((a,b)=>prio(a.e,b.e))){
       p.bx=Math.max(p.x0,-2);p.bw=Math.max(p.x1-p.bx,4);
-      // short blocks stay unlabelled until zoomed in (key and selected events always keep their name)
-      p.showLabel=p.bw>=SMALL_BLOCK||!!p.e.key||selected===p.e.id;
-      const lw=p.showLabel?labelWidth(p.e)+24:0;
-      // a label that would run off the right edge moves to just before its block (or as far left as fits)
-      p.shift=0;
-      if(p.showLabel&&p.bx<W&&p.bx+lw>W-4){const before=lw-10;p.shift=p.bx-before>=4?before:Math.max(0,Math.min(p.bx+lw-(W-4),p.bx-4))}
-      const l=Math.min(p.x0,p.bx-p.shift),r=Math.max(p.x1,p.bx-p.shift+lw)+6;
+      // the name always sits inside its box: name + dates if they fit, otherwise just the name
+      // (shortened with "…"), and nothing on boxes too small to hold any text
+      const visW=Math.min(p.bx+p.bw,W)-Math.max(p.bx,0);
+      const pad=16+(p.e.key?16:0);
+      const nameW=Math.min(textWidth(p.e.title,(0.84*remPx)+'px "Source Sans 3", "Segoe UI", system-ui, sans-serif'),MAXTITLE);
+      const dateW=textWidth(fmtWhen(p.e),(0.7*remPx)+'px "IBM Plex Mono", ui-monospace, Menlo, monospace');
+      p.label=visW>=nameW+dateW+pad+6?"full":visW>=SMALL_BLOCK?"name":"none";
+      const l=p.x0,r=p.x1+6;
       let row=rows.findIndex(rw=>fits(rw,l,r));
       if(row<0&&rows.length<MAXR){row=rows.length;rows.push([])}
       if(row<0){over.push(p);continue}
@@ -791,8 +793,9 @@ function drawTimeline(){
         cv.append(el("div",{class:"span",style:"left:"+p.bx+"px;width:"+p.bw+"px;top:"+lineY+"px;background:"+c}));
         for(const gx of [p.x0,p.x1])if(gx>=0&&gx<=W)cv.append(el("div",{class:"guide",style:"--c:"+c+";left:"+gx+"px;top:"+lineY+"px;height:"+(top-lineY)+"px"}));
       }
-      const b=el("button",{"data-id":p.e.id,class:"blk"+(sel?" sel":"")+(p.shift?" shifted":""),style:"left:"+p.bx+"px;width:"+p.bw+"px;top:"+top+"px;--c:"+c+";--shift:"+p.shift+"px","aria-label":p.e.title+", "+fmtWhen(p.e),title:p.e.title+" · "+fmtWhen(p.e)},
-        ...(p.showLabel?[p.e.key?el("span",{class:"star","aria-hidden":"true"},"★"):null,el("span",{class:"tt"},p.e.title),el("span",{class:"yr"},fmtWhen(p.e))]:[]));
+      const b=el("button",{"data-id":p.e.id,class:"blk"+(sel?" sel":""),style:"left:"+p.bx+"px;width:"+p.bw+"px;top:"+top+"px;--c:"+c,"aria-label":p.e.title+", "+fmtWhen(p.e),title:p.e.title+" · "+fmtWhen(p.e)},
+        ...(p.label==="none"?[]:[p.e.key?el("span",{class:"star","aria-hidden":"true"},"★"):null,el("span",{class:"tt"},p.e.title),p.label==="full"?el("span",{class:"yr"},fmtWhen(p.e)):null]));
+      if(p.bx<0||p.bx+p.bw>W){const lead=Math.max(0,-p.bx);b.style.paddingLeft=(6+lead)+"px";b.style.paddingRight=(6+Math.max(0,p.bx+p.bw-W))+"px"}
       b.addEventListener("click",()=>pickOnTimeline(p.e));
       cv.append(b);
     }
@@ -1471,7 +1474,7 @@ function showModal(content){
   $("#modalRoot").replaceChildren(scrim);
   const f=content.querySelector("input,select,textarea,button");if(f)f.focus();
 }
-function dateInputs(prefix,y,m,d,label,nextFocus){
+function dateInputs(prefix,y,m,d,label,nextFocus,onEra){
   // AD/BC → year → month → day, typed straight through.
   // Year: 4 digits, or / . - space, jumps to month (A/B keys set the era).
   // Month: 2 digits, or a single 2–9, jumps to day. Day: 2 digits, or a single 4–9, jumps on.
@@ -1483,13 +1486,14 @@ function dateInputs(prefix,y,m,d,label,nextFocus){
   const dIn=num(prefix+"d","DD",d,2,label+" day");
   const ad=el("button",{type:"button",tabindex:"-1"},"AD"),bc=el("button",{type:"button",tabindex:"-1"},"BC");
   const setEra=v=>{eraVal.value=v;ad.setAttribute("aria-pressed",String(v==="AD"));bc.setAttribute("aria-pressed",String(v==="BC"))};
-  ad.onclick=()=>{setEra("AD");yIn.focus()};bc.onclick=()=>{setEra("BC");yIn.focus()};setEra(f.era);
+  const pick=v=>{setEra(v);if(onEra)onEra(v)};
+  ad.onclick=()=>{pick("AD");yIn.focus()};bc.onclick=()=>{pick("BC");yIn.focus()};setEra(f.era);
   const go=n=>{if(!n)return;n.focus();if(n.select)n.select()};
   const digits=inp=>{const v=inp.value.replace(/\D/g,"");if(v!==inp.value)inp.value=v;return v};
   const SEP=["/",".","-"," ","Enter"];
   yIn.addEventListener("keydown",ev=>{
     const k=ev.key.toLowerCase();
-    if(k==="b"||k==="a"){ev.preventDefault();setEra(k==="b"?"BC":"AD");return}
+    if(k==="b"||k==="a"){ev.preventDefault();pick(k==="b"?"BC":"AD");return}
     if(SEP.includes(ev.key)&&ev.key!=="Enter"){ev.preventDefault();go(mIn)}
   });
   yIn.addEventListener("input",()=>{if(digits(yIn).length===4)go(mIn)});
@@ -1507,9 +1511,10 @@ function dateInputs(prefix,y,m,d,label,nextFocus){
     el("span",{class:"c1"}),el("span",null,"YYYY"),
     el("div",{class:"mdd"},el("span",null,"MM"),el("span",{class:"slash",style:"visibility:hidden"},"/"),el("span",null,"DD")));
   // only needed once the boxes are filled in and their placeholders are hidden
-  return el("div",{class:"datewrap"},y!=null?head:null,el("div",{class:"date"},
+  const row=el("div",{class:"datewrap"},y!=null?head:null,el("div",{class:"date"},
     el("div",{class:"era",role:"group","aria-label":label+" era"},ad,bc),yIn,eraVal,
     el("div",{class:"mdd"},mIn,el("span",{class:"slash"},"/"),dIn)));
+  row.setEra=setEra;return row;
 }
 function catSelect(cur){
   return el("select",{id:"fCat"},
@@ -1522,8 +1527,24 @@ function openEvent(e){
   const starBtn=el("button",{type:"button",id:"fKey",class:"starbtn","aria-label":"Key event","aria-pressed":String(!!e.key),title:"Key event"},e.key?"★":"☆");
   starBtn.onclick=()=>{const on=starBtn.getAttribute("aria-pressed")!=="true";starBtn.setAttribute("aria-pressed",String(on));starBtn.textContent=on?"★":"☆"};
   const period=el("input",{type:"checkbox",id:"fPeriod",checked:e.ey!=null});
-  const endWrap=el("div",{class:"field",hidden:e.ey==null},el("span",{class:"lab"},"Ended"),dateInputs("fE",e.ey,e.em,e.ed,"End",()=>$("#fCat")));
-  period.onchange=()=>{endWrap.hidden=!period.checked};
+  let endEraTouched=e.ey!=null;
+  const endRow=dateInputs("fE",e.ey,e.em,e.ed,"End",()=>$("#fCat"),()=>{endEraTouched=true;updLasted()});
+  const lasted=el("div",{class:"lasted mono"});
+  const endWrap=el("div",{class:"field",hidden:e.ey==null},el("span",{class:"lab"},"Ended"),endRow,lasted);
+  const followStartEra=v=>{if(!endEraTouched)endRow.setEra(v);updLasted()};
+  // live "Lasted …" line, so a wrong AD/BC choice is easy to spot
+  const updLasted=()=>{
+    const num=id=>{const n=parseInt(($(id)||{}).value,10);return Number.isFinite(n)?n:null};
+    const sy=num("#fSy"),ey=num("#fEy");
+    if(!period.checked||sy==null||ey==null||sy<1||ey<1){lasted.textContent="";lasted.className="lasted mono";return}
+    const sm=num("#fSm"),sd=num("#fSd"),em=num("#fEm"),ed=num("#fEd");
+    const okm=v=>v>=1&&v<=12?v:null;
+    const a=tOf(toAstro(sy,$("#fSera").value),okm(sm),okm(sm)?sd:null);
+    const b=tOf(toAstro(ey,$("#fEera").value),okm(em),okm(em)?ed:null);
+    if(b<a){lasted.textContent="Ends before it starts. Check the AD / BC buttons.";lasted.className="lasted mono warn";return}
+    lasted.textContent="Lasted about "+fmtGap(b-a+(okm(em)?0:1));lasted.className="lasted mono";
+  };
+  period.onchange=()=>{endWrap.hidden=!period.checked;if(period.checked&&!endEraTouched)endRow.setEra($("#fSera").value);updLasted()};
   const newCat=el("div",{class:"field",hidden:true},el("label",{for:"fNewCat"},"New category name"),el("input",{type:"text",id:"fNewCat",placeholder:"e.g. History of Italy"}));
   const sel=catSelect(e.cat==="_none"?"":e.cat);sel.onchange=()=>{newCat.hidden=sel.value!=="__new";if(!newCat.hidden)newCat.querySelector("input").focus()};
   const err=el("p",{class:"err",hidden:true});
@@ -1571,7 +1592,7 @@ function openEvent(e){
     el("div",{class:"field"},el("label",{for:"fTitle"},"What happened"),el("div",{class:"titlerow"},
       el("input",{type:"text",id:"fTitle",value:e.title,placeholder:"e.g. Fall of Constantinople",maxlength:"120"}),
       starBtn)),
-    el("div",{class:"field"},el("span",{class:"lab"},isNew?"When":"Started"),dateInputs("fS",e.y,e.m,e.d,"Start",()=>$("#fPeriod").checked?$("#fEy"):$("#fCat"))),
+    el("div",{class:"field"},el("span",{class:"lab"},isNew?"When":"Started"),dateInputs("fS",e.y,e.m,e.d,"Start",()=>$("#fPeriod").checked?$("#fEy"):$("#fCat"),v=>followStartEra(v))),
     el("label",{class:"toggle"},period,"This lasted a while (a war, a reign, an era)"),
     endWrap,
     el("div",{class:"field"},el("label",{for:"fCat"},"Category"),sel),newCat,
@@ -1585,7 +1606,8 @@ function openEvent(e){
       el("button",{type:"button",class:"btn",onclick:closeModal},"Cancel"),
       el("button",{type:"submit",class:"btn primary"},isNew?"Add to timeline":"Save")));
   function showErr(t){err.textContent=t;err.hidden=false}
-  showModal(form);
+  form.addEventListener("input",updLasted);
+  showModal(form);updLasted();
 }
 
 function openCategories(){
